@@ -1,0 +1,4 @@
+name = "huiwen"
+domain = "[::]:8081"
+path = ""
+src = "/home/moon/nodes/huiwen/huiwen-rs/dist"

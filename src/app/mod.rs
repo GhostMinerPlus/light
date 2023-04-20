@@ -130,12 +130,16 @@ impl App {
             for (name, value) in req.headers() {
                 headers.insert(name.clone(), value.clone());
             }
-            let uri: Uri = domain.as_str().parse().unwrap();
-            headers.insert(reqwest::header::HOST, uri.host().unwrap().parse().unwrap());
-            headers.insert(reqwest::header::REFERER, domain.as_str().parse().unwrap());
+            // let uri: Uri = domain.as_str().parse().unwrap();
+            // headers.insert(reqwest::header::HOST, uri.host().unwrap().parse().unwrap());
+            // headers.insert(reqwest::header::REFERER, domain.as_str().parse().unwrap());
             headers
         };
-        match reqwest::Client::new()
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap();
+        match client
             .request(method, url)
             .headers(headers)
             .body(body)
