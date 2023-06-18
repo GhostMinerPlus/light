@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-time = "0.3.20"
 log = "0.4.17"
+env_logger = "0.10.0"
 earth = { git = "https://gitee.com/ghostminer/earth.git" }
 
 actix-files = "0.6.2"
@@ -15,3 +15,6 @@ actix-web = "4.3.0"
 reqwest = "0.11.14"
 serde = { version = "1.0.159", features = ["derive"] }
 tokio = { version = "1.27.0", features = [ "rt-multi-thread" ] }
+futures-util = "0.3.28"
+actix-http = "3.3.1"
+bytes = "1.4.0"
