@@ -1,15 +1,21 @@
 mod interfaces;
 
+use std::collections::BTreeMap;
+
 use actix_web::HttpServer;
 use env_logger::Env;
+
+use crate::interfaces::Proxy;
 
 static mut APP: Option<App> = None;
 
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     let mut config = Config::default();
     earth::Config::merge_by_file(&mut config, "earth.toml");
     earth::Config::merge_by_args(&mut config, &std::env::args().collect());
+
     App::create_app(config).run();
 }
 
@@ -18,8 +24,9 @@ pub(crate) struct Config {
     name: String,
     domain: String,
     path: String,
-    service: String,
     src: String,
+
+    proxies: BTreeMap<String, String>,
 }
 
 impl Default for Config {
@@ -27,9 +34,9 @@ impl Default for Config {
         Self {
             name: "Light".to_string(),
             domain: "[::]:8080".to_string(),
-            path: "".to_string(),
-            service: "/service".to_string(),
+            path: "/light".to_string(),
             src: ".".to_string(),
+            proxies: BTreeMap::new(),
         }
     }
 }
@@ -41,7 +48,15 @@ pub(crate) struct App {
 }
 
 impl App {
-    pub fn create_app(config: Config) -> &'static mut App {
+    pub(crate) fn get_app() -> &'static App {
+        unsafe { APP.as_ref().unwrap() }
+    }
+
+    pub(crate) fn get_config() -> &'static Config {
+        &Self::get_app().config
+    }
+
+    fn create_app(config: Config) -> &'static mut App {
         unsafe {
             APP = Some(App { config });
             APP.as_mut().unwrap()
@@ -59,6 +74,7 @@ impl App {
         log::info!("http service serves at: http://{domain}{path}");
         let server = HttpServer::new(move || {
             actix_web::App::new()
+                .wrap(Proxy)
                 .service(actix_web::web::scope(&path).configure(interfaces::http::config))
         });
         let _ = tokio::runtime::Builder::new_multi_thread()
@@ -75,13 +91,5 @@ impl App {
                 }
                 .run(),
             );
-    }
-
-    fn get_app() -> &'static App {
-        unsafe { APP.as_ref().unwrap() }
-    }
-
-    fn get_config() -> &'static Config {
-        &Self::get_app().config
     }
 }
