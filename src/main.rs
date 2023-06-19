@@ -1,11 +1,10 @@
-mod interfaces;
+pub(crate) mod application;
+pub(crate) mod interfaces;
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Mutex};
 
 use actix_web::HttpServer;
 use env_logger::Env;
-
-use crate::interfaces::Proxy;
 
 static mut APP: Option<App> = None;
 
@@ -44,7 +43,12 @@ impl Default for Config {
 impl earth::Config for Config {}
 
 pub(crate) struct App {
-    config: Config,
+    pub(crate) name: String,
+    pub(crate) domain: String,
+    pub(crate) path: String,
+    pub(crate) src: String,
+
+    pub(crate) proxies: Mutex<BTreeMap<String, String>>,
 }
 
 impl App {
@@ -52,13 +56,15 @@ impl App {
         unsafe { APP.as_ref().unwrap() }
     }
 
-    pub(crate) fn get_config() -> &'static Config {
-        &Self::get_app().config
-    }
-
     fn create_app(config: Config) -> &'static mut App {
         unsafe {
-            APP = Some(App { config });
+            APP = Some(App {
+                name: config.name,
+                domain: config.domain,
+                path: config.path,
+                src: config.src,
+                proxies: Mutex::new(config.proxies),
+            });
             APP.as_mut().unwrap()
         }
     }
@@ -69,12 +75,12 @@ impl App {
 
     fn start_http_service(&self) {
         log::info!("start http service");
-        let domain = Self::get_app().config.domain.clone();
-        let path = Self::get_app().config.path.clone();
+        let domain = Self::get_app().domain.clone();
+        let path = Self::get_app().path.clone();
         log::info!("http service serves at: http://{domain}{path}");
         let server = HttpServer::new(move || {
             actix_web::App::new()
-                .wrap(Proxy)
+                .wrap(interfaces::http::Proxy {})
                 .service(actix_web::web::scope(&path).configure(interfaces::http::config))
         });
         let _ = tokio::runtime::Builder::new_multi_thread()
