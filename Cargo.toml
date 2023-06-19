@@ -18,3 +18,4 @@ tokio = { version = "1.27.0", features = [ "rt-multi-thread" ] }
 futures-util = "0.3.28"
 actix-http = "3.3.1"
 bytes = "1.4.0"
+serde_json = "1.0.97"
