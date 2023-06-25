@@ -6,8 +6,8 @@ use crate::App;
 
 pub(crate) async fn add_proxy(proxy: &dto::Proxy) -> String {
     let mut proxies = App::get_app().proxies.lock().unwrap();
-    proxies.insert(proxy.name.clone(), proxy.url.clone());
-    proxy.name.clone()
+    proxies.insert(proxy.path.clone(), proxy.url.clone());
+    proxy.path.clone()
 }
 
 pub(crate) async fn remove_proxy(name: &str) -> String {
@@ -27,7 +27,7 @@ pub(crate) async fn list_proxies(page: &dto::Page) -> Vec<dto::Proxy> {
     for proxy in &*proxies {
         if i >= start {
             list.push(dto::Proxy {
-                name: proxy.0.clone(),
+                path: proxy.0.clone(),
                 url: proxy.1.clone(),
             });
         }

@@ -2,7 +2,7 @@ use serde::{self, Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub(crate) struct Proxy {
-    pub(crate) name: String,
+    pub(crate) path: String,
     pub(crate) url: String,
 }
 
