@@ -137,7 +137,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let path = req.path();
-        let proxies = Context::as_ref().proxies.lock().unwrap();
+        let proxies = Context::as_ref().proxy.lock().unwrap();
         for (name, url) in &*proxies {
             if path.starts_with(name) {
                 let url = format!("{url}{}", &path[name.len()..]);

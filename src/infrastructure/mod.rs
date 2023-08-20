@@ -40,7 +40,7 @@ pub struct Context {
 
     pub src: String,
 
-    pub proxies: Mutex<BTreeMap<String, String>>,
+    pub proxy: Mutex<BTreeMap<String, String>>,
 }
 
 impl Context {
@@ -51,7 +51,7 @@ impl Context {
                 path: config.path.clone(),
                 name: config.name.clone(),
                 src: config.src.clone(),
-                proxies: Mutex::new(BTreeMap::new()),
+                proxy: Mutex::new(config.proxy.clone()),
             });
         };
     }
