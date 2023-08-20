@@ -1,23 +1,23 @@
-pub(crate) mod dto;
+pub mod dto;
 
 use std::cmp::min;
 
-use crate::App;
+use crate::infrastructure::Context;
 
-pub(crate) async fn add_proxy(proxy: &dto::Proxy) -> String {
-    let mut proxies = App::get_app().proxies.lock().unwrap();
-    proxies.insert(proxy.name.clone(), proxy.url.clone());
-    proxy.name.clone()
+pub async fn add_proxy(proxy: &dto::Proxy) -> String {
+    let mut proxies = Context::as_ref().proxies.lock().unwrap();
+    proxies.insert(proxy.path.clone(), proxy.url.clone());
+    proxy.path.clone()
 }
 
-pub(crate) async fn remove_proxy(name: &str) -> String {
-    let mut proxies = App::get_app().proxies.lock().unwrap();
+pub async fn remove_proxy(name: &str) -> String {
+    let mut proxies = Context::as_ref().proxies.lock().unwrap();
     proxies.remove(name);
     name.to_string()
 }
 
-pub(crate) async fn list_proxies(page: &dto::Page) -> Vec<dto::Proxy> {
-    let proxies = App::get_app().proxies.lock().unwrap();
+pub async fn list_proxies(page: &dto::Page) -> Vec<dto::Proxy> {
+    let proxies = Context::as_ref().proxies.lock().unwrap();
 
     let start = page.number * page.size;
     let end = min(start + page.size, proxies.len());
@@ -27,7 +27,7 @@ pub(crate) async fn list_proxies(page: &dto::Page) -> Vec<dto::Proxy> {
     for proxy in &*proxies {
         if i >= start {
             list.push(dto::Proxy {
-                name: proxy.0.clone(),
+                path: proxy.0.clone(),
                 url: proxy.1.clone(),
             });
         }
