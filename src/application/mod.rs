@@ -5,19 +5,19 @@ use std::cmp::min;
 use crate::infrastructure::Context;
 
 pub async fn add_proxy(proxy: &dto::Proxy) -> String {
-    let mut proxies = Context::as_ref().proxies.lock().unwrap();
+    let mut proxies = Context::as_ref().proxy.lock().unwrap();
     proxies.insert(proxy.path.clone(), proxy.url.clone());
     proxy.path.clone()
 }
 
 pub async fn remove_proxy(name: &str) -> String {
-    let mut proxies = Context::as_ref().proxies.lock().unwrap();
+    let mut proxies = Context::as_ref().proxy.lock().unwrap();
     proxies.remove(name);
     name.to_string()
 }
 
 pub async fn list_proxies(page: &dto::Page) -> Vec<dto::Proxy> {
-    let proxies = Context::as_ref().proxies.lock().unwrap();
+    let proxies = Context::as_ref().proxy.lock().unwrap();
 
     let start = page.number * page.size;
     let end = min(start + page.size, proxies.len());
