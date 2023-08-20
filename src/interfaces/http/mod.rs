@@ -1,4 +1,4 @@
-pub(crate) mod system;
+pub mod service;
 
 use actix_files::{Files, NamedFile};
 use actix_http::{body::BoxBody, Payload};
@@ -6,39 +6,22 @@ use actix_web::{
     dev::{fn_service, ServiceRequest, ServiceResponse},
     dev::{forward_ready, Service, Transform},
     http::header::HeaderMap,
-    web, Error, HttpRequest, HttpResponse,
+    web, Error, HttpRequest, HttpResponse, HttpServer,
 };
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::future::{ready, Ready};
 
-use crate::App;
-
-pub(crate) fn config(cfg: &mut web::ServiceConfig) {
-    cfg.route("/system/add_proxy", web::post().to(system::add_proxy))
-        .route(
-            "/system/remove_proxy",
-            web::delete().to(system::remove_proxy),
-        )
-        .route("/system/list_proxies", web::get().to(system::list_proxies))
-        .service(
-            Files::new("", &App::get_app().src)
-                .index_file("index.html")
-                .default_handler(fn_service(|req: ServiceRequest| async {
-                    let (req, _) = req.into_parts();
-                    let file = NamedFile::open_async(&format!("{}/index.html", App::get_app().src))
-                        .await?;
-                    let res = file.into_response(&req);
-                    Ok(ServiceResponse::new(req, res))
-                })),
-        );
-}
+use crate::{
+    application::dto,
+    infrastructure::{config::Config, Context},
+};
 
 // There are two steps in middleware processing.
 // 1. Middleware initialization, middleware factory gets called with
 //    next service in chain as parameter.
 // 2. Middleware's call method gets called with normal request.
-pub struct Proxy;
+struct Proxy;
 
 // Middleware factory is `Transform` trait
 // `S` - type of the next service
@@ -59,7 +42,7 @@ where
     }
 }
 
-pub struct ProxyMiddleware<S> {
+struct ProxyMiddleware<S> {
     service: S,
 }
 
@@ -154,7 +137,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let path = req.path();
-        let proxies = App::get_app().proxies.lock().unwrap();
+        let proxies = Context::as_ref().proxies.lock().unwrap();
         for (name, url) in &*proxies {
             if path.starts_with(name) {
                 let url = format!("{url}{}", &path[name.len()..]);
@@ -165,4 +148,53 @@ where
         drop(proxies);
         Box::pin(self.service.call(req))
     }
+}
+
+fn config(cfg: &mut web::ServiceConfig) {
+    cfg.service(service::system::add_proxy)
+        .service(service::system::remove_proxy)
+        .service(service::system::list_proxies)
+        .service(
+            Files::new("", &Context::as_ref().src)
+                .index_file("index.html")
+                .default_handler(fn_service(|req: ServiceRequest| async {
+                    let (req, _) = req.into_parts();
+                    let file =
+                        NamedFile::open_async(&format!("{}/index.html", Context::as_ref().src))
+                            .await?;
+                    let res = file.into_response(&req);
+                    Ok(ServiceResponse::new(req, res))
+                })),
+        );
+}
+
+// public
+pub async fn init(config: &Config) {
+    let client = reqwest::Client::new();
+    let proxy = serde_json::to_string(&dto::Proxy {
+        path: config.path.clone(),
+        url: format!("http://{}{}", config.domain, config.path),
+    })
+    .unwrap();
+    for host in &config.hosts {
+        client
+            .post(format!("{host}/system/add_proxy"))
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(proxy.clone())
+            .send()
+            .await
+            .unwrap();
+    }
+}
+
+pub async fn run() {
+    let context = Context::as_ref();
+    let path = context.path.clone();
+    let domain = context.domain.clone();
+    log::info!("http service uri: http://{domain}{path}");
+
+    let server = HttpServer::new(move || {
+        actix_web::App::new().service(actix_web::web::scope(&path).configure(config))
+    });
+    server.bind(&domain).unwrap().run().await.unwrap();
 }

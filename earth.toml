@@ -1,7 +1,4 @@
 name = "huiwen"
-domain = "[::]:8083"
+domain = "[::1]:8083"
 path = "/huiwen"
 src = "/home/moon/nodes/huiwen/dist"
-
-[proxies]
-"/mirror" = "http://[::1]:8080/mirror"
