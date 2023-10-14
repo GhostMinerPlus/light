@@ -12,35 +12,7 @@ use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::future::{ready, Ready};
 
-use crate::{
-    application::dto,
-    infrastructure::{config::Config, Context},
-};
-
-// There are two steps in middleware processing.
-// 1. Middleware initialization, middleware factory gets called with
-//    next service in chain as parameter.
-// 2. Middleware's call method gets called with normal request.
-struct Proxy;
-
-// Middleware factory is `Transform` trait
-// `S` - type of the next service
-// `B` - type of response's body
-impl<S> Transform<S, ServiceRequest> for Proxy
-where
-    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
-    S::Future: 'static,
-{
-    type Response = ServiceResponse<BoxBody>;
-    type Error = Error;
-    type InitError = ();
-    type Transform = ProxyMiddleware<S>;
-    type Future = Ready<Result<Self::Transform, Self::InitError>>;
-
-    fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(ProxyMiddleware { service }))
-    }
-}
+use crate::api::{config::Config, Context};
 
 struct ProxyMiddleware<S> {
     service: S,
@@ -137,7 +109,7 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let path = req.path();
-        let proxies = Context::as_ref().proxies.lock().unwrap();
+        let proxies = Context::as_ref().proxy.lock().unwrap();
         for (name, url) in &*proxies {
             if path.starts_with(name) {
                 let url = format!("{url}{}", &path[name.len()..]);
@@ -147,6 +119,31 @@ where
         }
         drop(proxies);
         Box::pin(self.service.call(req))
+    }
+}
+
+// There are two steps in middleware processing.
+// 1. Middleware initialization, middleware factory gets called with
+//    next service in chain as parameter.
+// 2. Middleware's call method gets called with normal request.
+struct Proxy;
+
+// Middleware factory is `Transform` trait
+// `S` - type of the next service
+// `B` - type of response's body
+impl<S> Transform<S, ServiceRequest> for Proxy
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<BoxBody>, Error = Error> + 'static,
+    S::Future: 'static,
+{
+    type Response = ServiceResponse<BoxBody>;
+    type Error = Error;
+    type InitError = ();
+    type Transform = ProxyMiddleware<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(ProxyMiddleware { service }))
     }
 }
 
@@ -171,7 +168,7 @@ fn config(cfg: &mut web::ServiceConfig) {
 // public
 pub async fn init(config: &Config) {
     let client = reqwest::Client::new();
-    let proxy = serde_json::to_string(&dto::Proxy {
+    let proxy = serde_json::to_string(&service::dto::Proxy {
         path: config.path.clone(),
         url: format!("http://{}{}", config.domain, config.path),
     })
@@ -194,7 +191,7 @@ pub async fn run() {
     log::info!("http service uri: http://{domain}{path}");
 
     let server = HttpServer::new(move || {
-        actix_web::App::new().service(actix_web::web::scope(&path).configure(config))
+        actix_web::App::new().wrap(Proxy{}).service(actix_web::web::scope(&path).configure(config))
     });
     server.bind(&domain).unwrap().run().await.unwrap();
 }

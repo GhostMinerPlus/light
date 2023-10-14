@@ -11,3 +11,10 @@ pub struct Page {
     pub size: usize,
     pub number: usize,
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct Auth {
+    pub username: String,
+    pub password: String,
+    pub home: String,
+}
