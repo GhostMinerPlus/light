@@ -1,3 +1,3 @@
 from archlinux:full
 
-copy ./target/release/light /bin
+copy ./target/release/light /bin/
