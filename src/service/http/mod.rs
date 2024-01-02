@@ -1,21 +1,26 @@
 pub mod service;
 
-use actix_files::{Files, NamedFile};
+use actix_files::Files;
 use actix_http::{body::BoxBody, Payload};
 use actix_web::{
-    dev::{fn_service, ServiceRequest, ServiceResponse},
     dev::{forward_ready, Service, Transform},
+    dev::{HttpServiceFactory, ServiceRequest, ServiceResponse},
     http::header::HeaderMap,
-    web, Error, HttpRequest, HttpResponse, HttpServer,
+    Error, HttpRequest, HttpResponse, HttpServer,
 };
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
-use std::future::{ready, Ready};
+use std::{
+    future::{self, Ready},
+    io,
+    sync::Arc,
+};
 
-use crate::api::{config::Config, Context};
+use crate::util::Context;
 
 struct ProxyMiddleware<S> {
     service: S,
+    ctx: Arc<Context>,
 }
 
 impl<S> ProxyMiddleware<S> {
@@ -110,7 +115,7 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let path = req.path();
         log::info!("request: {path}");
-        let proxies = Context::as_ref().proxy.lock().unwrap();
+        let proxies = self.ctx.proxy.lock().unwrap();
         for (name, url) in &*proxies {
             if path.starts_with(name) {
                 let url = format!("{url}{}", &path[name.len()..]);
@@ -127,7 +132,9 @@ where
 // 1. Middleware initialization, middleware factory gets called with
 //    next service in chain as parameter.
 // 2. Middleware's call method gets called with normal request.
-struct Proxy;
+struct Proxy {
+    ctx: Arc<Context>,
+}
 
 // Middleware factory is `Transform` trait
 // `S` - type of the next service
@@ -144,55 +151,51 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(ProxyMiddleware { service }))
+        future::ready(Ok(ProxyMiddleware {
+            service,
+            ctx: self.ctx.clone(),
+        }))
     }
 }
 
-fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(service::system::add_proxy)
+fn config(path: &str, src: &str) -> impl HttpServiceFactory {
+    actix_web::web::scope(&path)
+        .service(service::system::add_proxy)
         .service(service::system::remove_proxy)
         .service(service::system::list_proxies)
-        .service(
-            Files::new("", &Context::as_ref().src)
-                .index_file("index.html")
-                .default_handler(fn_service(|req: ServiceRequest| async {
-                    let (req, _) = req.into_parts();
-                    let file =
-                        NamedFile::open_async(&format!("{}/index.html", Context::as_ref().src))
-                            .await?;
-                    let res = file.into_response(&req);
-                    Ok(ServiceResponse::new(req, res))
-                })),
-        );
+        .service(Files::new("", src).index_file("index.html"))
 }
 
 // public
-pub async fn init(config: &Config) {
+pub async fn init(domain: &str, path: &str, hosts: &Vec<String>) -> io::Result<()> {
     let client = reqwest::Client::new();
     let proxy = serde_json::to_string(&service::dto::Proxy {
-        path: config.path.clone(),
-        url: format!("http://{}{}", config.domain, config.path),
-    })
-    .unwrap();
-    for host in &config.hosts {
+        path: path.to_string(),
+        url: format!("http://{}{}", domain, path),
+    })?;
+    for host in hosts {
         client
             .post(format!("{host}/system/add_proxy"))
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(proxy.clone())
             .send()
             .await
-            .unwrap();
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
     }
+    Ok(())
 }
 
-pub async fn run() {
-    let context = Context::as_ref();
-    let path = context.path.clone();
-    let domain = context.domain.clone();
+pub async fn run(ctx: Arc<Context>) -> io::Result<()> {
+    let domain = ctx.domain.clone();
+    let path = ctx.path.clone();
+    let src = ctx.src.clone();
     log::info!("http service uri: http://{domain}{path}");
 
     let server = HttpServer::new(move || {
-        actix_web::App::new().wrap(Proxy{}).service(actix_web::web::scope(&path).configure(config))
+        actix_web::App::new()
+            .app_data(ctx.clone())
+            .wrap(Proxy { ctx: ctx.clone() })
+            .service(config(&path, &src))
     });
-    server.bind(&domain).unwrap().run().await.unwrap();
+    server.bind(&domain)?.run().await
 }

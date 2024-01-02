@@ -1,4 +1,0 @@
-name = "huiwen"
-domain = "[::1]:8083"
-path = "/huiwen"
-src = "/home/moon/nodes/huiwen/dist"
