@@ -7,8 +7,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use earth::AsConfig;
+
 // public
-#[derive(serde::Deserialize, serde::Serialize, earth::Config, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone)]
 struct Config {
     name: String,
     ip: String,
@@ -40,13 +42,17 @@ impl Default for Config {
 fn main() -> io::Result<()> {
     // config
     let mut config = Config::default();
-    let arg_v: Vec<String> = std::env::args().collect();
-    let file_name = if arg_v.len() == 2 {
-        arg_v[1].as_str()
+    let mut arg_v: Vec<String> = std::env::args().collect();
+    arg_v.remove(0);
+    let file_name = if !arg_v.is_empty() && !arg_v[0].starts_with("--") {
+        arg_v.remove(0)
     } else {
-        "config.toml"
+        "config.toml".to_string()
     };
-    earth::Config::merge_by_file(&mut config, file_name);
+    config.merge_by_file(&file_name);
+    if !arg_v.is_empty() {
+        config.merge_by_args(&arg_v);
+    }
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(&config.log_level))
         .init();
