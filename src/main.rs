@@ -1,5 +1,4 @@
 mod service;
-mod task;
 mod util;
 
 use std::{
@@ -62,14 +61,7 @@ fn main() -> io::Result<()> {
         })
 }
 
-async fn start_task(config: &Config) -> io::Result<()> {
-    let config_copy = config.clone();
-    log::info!("starting task 'report_ipv6'");
-    tokio::spawn(async move {
-        loop {
-            task::report_address6(&config_copy.name, config_copy.port, &config_copy.host_v).await;
-        }
-    });
+async fn start_task(_: &Config) -> io::Result<()> {
     Ok(())
 }
 
