@@ -18,7 +18,7 @@ struct Config {
     proxy: BTreeMap<String, String>,
     log_level: String,
     src: String,
-    host_v: Vec<String>,
+    thread_num: u8,
 }
 
 impl Default for Config {
@@ -32,7 +32,7 @@ impl Default for Config {
             proxy: BTreeMap::new(),
             log_level: "info".to_string(),
             src: "dist".to_string(),
-            host_v: Vec::new(),
+            thread_num: 8,
         }
     }
 }
@@ -52,9 +52,9 @@ fn main() -> io::Result<()> {
         .init();
 
     tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(config.thread_num as usize)
         .enable_all()
-        .build()
-        .unwrap()
+        .build()?
         .block_on(async {
             start_task(&config).await?;
             serve(&config).await
