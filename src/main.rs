@@ -75,13 +75,13 @@ async fn serve(config: &Config) -> io::Result<()> {
     let domain = format!("{}:{}", config.ip, config.port);
     service::init(&domain, &config.path, &config.hosts).await?;
 
-    let ctx = Arc::new(util::Context {
+    let ctx = util::Context {
         domain,
         path: config.path.clone(),
         name: config.name.clone(),
         src: config.src.clone(),
-        proxy: Mutex::new(config.proxy.clone()),
-    });
+        proxy: Arc::new(Mutex::new(config.proxy.clone())),
+    };
     log::info!("{} starting", ctx.name);
     service::run(ctx).await
 }

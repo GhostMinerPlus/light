@@ -1,12 +1,13 @@
 use std::{
     collections::BTreeMap,
-    sync::Mutex,
+    sync::{Mutex, Arc},
 };
 
+#[derive(Clone)]
 pub struct Context {
     pub name: String,
     pub domain: String,
     pub path: String,
     pub src: String,
-    pub proxy: Mutex<BTreeMap<String, String>>,
+    pub proxy: Arc<Mutex<BTreeMap<String, String>>>,
 }

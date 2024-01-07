@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use actix_web::{web, HttpResponse, Responder};
 
 use crate::util::Context;
@@ -8,7 +6,7 @@ use super::dto;
 
 #[actix_web::post("/system/add_proxy")]
 async fn add_proxy(
-    ctx: web::Data<Arc<Context>>,
+    ctx: web::Data<Context>,
     web::Json(proxy): web::Json<dto::Proxy>,
 ) -> impl Responder {
     let mut proxies = ctx.proxy.lock().unwrap();
@@ -18,7 +16,7 @@ async fn add_proxy(
 
 #[actix_web::delete("/system/remove_proxy")]
 pub async fn remove_proxy(
-    ctx: web::Data<Arc<Context>>,
+    ctx: web::Data<Context>,
     web::Json(proxy): web::Json<dto::Proxy>,
 ) -> impl Responder {
     let mut proxies = ctx.proxy.lock().unwrap();
@@ -27,7 +25,7 @@ pub async fn remove_proxy(
 }
 
 #[actix_web::get("/system/list_proxies")]
-pub async fn list_proxies(ctx: web::Data<Arc<Context>>) -> impl Responder {
+pub async fn list_proxies(ctx: web::Data<Context>) -> impl Responder {
     let proxies = ctx.proxy.lock().unwrap();
 
     let mut list = Vec::with_capacity(proxies.len());

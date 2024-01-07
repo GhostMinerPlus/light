@@ -6,21 +6,19 @@ use actix_web::{
     dev::{forward_ready, Service, Transform},
     dev::{HttpServiceFactory, ServiceRequest, ServiceResponse},
     http::header::HeaderMap,
-    Error, HttpRequest, HttpResponse, HttpServer,
+    Error, HttpRequest, HttpResponse, HttpServer, web,
 };
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
     future::{self, Ready},
     io,
-    sync::Arc,
 };
 
 use crate::util::Context;
 
 struct ProxyMiddleware<S> {
     service: S,
-    ctx: Arc<Context>,
 }
 
 impl<S> ProxyMiddleware<S> {
@@ -113,9 +111,10 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        let ctx = req.app_data::<web::Data<Context>>().unwrap().clone();
         let path = req.path();
         log::info!("request: {path}");
-        let proxies = self.ctx.proxy.lock().unwrap();
+        let proxies = ctx.proxy.lock().unwrap();
         for (name, url) in &*proxies {
             if path.starts_with(name) {
                 let url = format!("{url}{}", &path[name.len()..]);
@@ -132,9 +131,7 @@ where
 // 1. Middleware initialization, middleware factory gets called with
 //    next service in chain as parameter.
 // 2. Middleware's call method gets called with normal request.
-struct Proxy {
-    ctx: Arc<Context>,
-}
+struct Proxy {}
 
 // Middleware factory is `Transform` trait
 // `S` - type of the next service
@@ -151,10 +148,7 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        future::ready(Ok(ProxyMiddleware {
-            service,
-            ctx: self.ctx.clone(),
-        }))
+        future::ready(Ok(ProxyMiddleware { service }))
     }
 }
 
@@ -198,7 +192,7 @@ pub async fn init(domain: &str, path: &str, hosts: &Vec<String>) -> io::Result<(
     Ok(())
 }
 
-pub async fn run(ctx: Arc<Context>) -> io::Result<()> {
+pub async fn run(ctx: Context) -> io::Result<()> {
     let domain = ctx.domain.clone();
     let path = ctx.path.clone();
     let src = ctx.src.clone();
@@ -206,8 +200,8 @@ pub async fn run(ctx: Arc<Context>) -> io::Result<()> {
 
     let server = HttpServer::new(move || {
         actix_web::App::new()
-            .app_data(ctx.clone())
-            .wrap(Proxy { ctx: ctx.clone() })
+            .app_data(web::Data::new(ctx.clone()))
+            .wrap(Proxy {})
             .service(config(&path, &src))
     });
     server.bind(&domain)?.run().await
