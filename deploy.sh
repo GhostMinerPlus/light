@@ -1,1 +1,0 @@
-sudo kind load docker-image light:v0.1.1 --name surreal
