@@ -51,8 +51,9 @@ fn main() -> io::Result<()> {
     };
     config.merge_by_file(&file_name);
     if !arg_v.is_empty() {
-        config.merge_by_args(&arg_v);
+        config.merge_by_arg_v(&arg_v);
     }
+    config.merge_by_env(&format!("{}", config.name));
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(&config.log_level))
         .init();

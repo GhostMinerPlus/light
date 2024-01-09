@@ -279,9 +279,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.21.5"
+version = "0.21.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
+checksum = "c79fed4cdb43e993fcdadc7e58a09fd0e3e649c4436fa11da71c9f1f3ee7feb9"
 
 [[package]]
 name = "bitflags"
@@ -458,7 +458,7 @@ dependencies = [
 [[package]]
 name = "earth"
 version = "0.1.0"
-source = "git+https://github.com/GhostMinerPlus/earth.git#4d6093f3b673c83548d70efda56d65b0ece19f4c"
+source = "git+https://github.com/GhostMinerPlus/earth.git#926740e8e73a9e36a2be68eed71a417d596e4fa7"
 dependencies = [
  "macros",
  "serde",
@@ -613,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
+checksum = "190092ea657667030ac6a35e305e62fc4dd69fd98ac98631e5d3a2b1575a12b5"
 dependencies = [
  "cfg-if",
  "libc",
@@ -823,9 +823,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.151"
+version = "0.2.152"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
+checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
 
 [[package]]
 name = "light"
@@ -888,7 +888,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/GhostMinerPlus/earth.git#4d6093f3b673c83548d70efda56d65b0ece19f4c"
+source = "git+https://github.com/GhostMinerPlus/earth.git#926740e8e73a9e36a2be68eed71a417d596e4fa7"
 dependencies = [
  "quote",
  "syn 2.0.48",
