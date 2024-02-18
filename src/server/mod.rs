@@ -1,4 +1,4 @@
-//! Server that provides registration services.
+//! Server that provides services.
 
 use std::{
     collections::BTreeMap,

@@ -1,20 +1,30 @@
+//! Start server
+
 use std::{collections::BTreeMap, io};
 
 use earth::AsConfig;
 
 mod server;
 
-// public
+// Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone)]
+/// Config
 struct Config {
+    /// Default: light
     name: String,
+    /// Default: 0.0.0.0
     ip: String,
+    /// Default: 80
     port: u16,
+    /// Default: light
     path: String,
     hosts: Vec<String>,
     proxy: BTreeMap<String, String>,
+    /// Default: info
     log_level: String,
+    /// Default: dist
     src: String,
+    /// Default: 8
     thread_num: u8,
 }
 
@@ -22,7 +32,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             name: "light".to_string(),
-            ip: "[::]".to_string(),
+            ip: "0.0.0.0".to_string(),
             port: 80,
             path: "/light".to_string(),
             hosts: Vec::new(),
