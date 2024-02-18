@@ -50,7 +50,10 @@ pub async fn report_uri(
     Ok(())
 }
 
-pub async fn get_uri_from_server_v(name: &str, moon_server_uri_v: &Vec<String>) -> io::Result<String> {
+pub async fn get_uri_from_server_v(
+    name: &str,
+    moon_server_uri_v: &Vec<String>,
+) -> io::Result<String> {
     for moon_server_uri in moon_server_uri_v {
         if let Ok(res) = reqwest::Client::new()
             .get(format!("{moon_server_uri}/get?name={name}"))

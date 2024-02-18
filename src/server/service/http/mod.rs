@@ -35,24 +35,6 @@ fn config(path: &str, src: &str) -> impl HttpServiceFactory {
 }
 
 // public
-pub async fn init(domain: &str, path: &str, hosts: &Vec<String>) -> io::Result<()> {
-    let client = reqwest::Client::new();
-    let proxy = serde_json::to_string(&service::dto::Proxy {
-        path: path.to_string(),
-        url: format!("http://{}{}", domain, path),
-    })?;
-    for host in hosts {
-        client
-            .post(format!("{host}/system/add_proxy"))
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(proxy.clone())
-            .send()
-            .await
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-    }
-    Ok(())
-}
-
 pub async fn run(
     domain: &str,
     path: String,

@@ -6,11 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub async fn init(domain: &str, path: &str, hosts: &Vec<String>) -> io::Result<()> {
-    // init
-    http::init(domain, path, hosts).await
-}
-
+// Public
 pub async fn run(
     domain: &str,
     path: &str,

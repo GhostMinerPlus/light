@@ -19,7 +19,6 @@ struct Config {
     port: u16,
     /// Default: light
     path: String,
-    hosts: Vec<String>,
     proxy: BTreeMap<String, String>,
     /// Default: info
     log_level: String,
@@ -37,7 +36,6 @@ impl Default for Config {
             ip: "0.0.0.0".to_string(),
             port: 80,
             path: "/light".to_string(),
-            hosts: Vec::new(),
             proxy: BTreeMap::new(),
             log_level: "info".to_string(),
             src: "dist".to_string(),
@@ -77,7 +75,6 @@ fn main() -> io::Result<()> {
                 config.path,
                 config.name,
                 config.src,
-                config.hosts,
                 config.proxy,
                 config.moon_servers,
             )

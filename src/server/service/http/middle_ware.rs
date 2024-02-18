@@ -22,7 +22,9 @@ async fn proxy_fn(
     tail_path: String,
     moon_server_uri_v: Vec<String>,
 ) -> Result<ServiceResponse<BoxBody>, Error> {
-    let uri = star::get_uri_from_server_v(&name, &moon_server_uri_v).await.unwrap();
+    let uri = star::get_uri_from_server_v(&name, &moon_server_uri_v)
+        .await
+        .unwrap();
     let url = format!("{uri}{tail_path}");
 
     let method = req.method().clone();

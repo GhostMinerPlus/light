@@ -18,11 +18,9 @@ async fn serve(
     domain: &str,
     path: &str,
     src: &str,
-    hosts: &Vec<String>,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
     moon_server_v: Vec<String>,
 ) -> io::Result<()> {
-    service::init(domain, path, hosts).await?;
     log::info!("{} starting", name);
     service::run(domain, path, src, proxy, moon_server_v).await
 }
@@ -34,7 +32,6 @@ pub struct Server {
     port: u16,
     path: String,
     src: String,
-    hosts: Vec<String>,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
     moon_server_v: Vec<String>,
 }
@@ -46,7 +43,6 @@ impl Server {
         path: String,
         name: String,
         src: String,
-        hosts: Vec<String>,
         proxy: BTreeMap<String, String>,
         moon_server_v: Vec<String>,
     ) -> Self {
@@ -56,7 +52,6 @@ impl Server {
             path,
             name,
             src,
-            hosts,
             proxy: Arc::new(Mutex::new(proxy)),
             moon_server_v,
         }
@@ -79,7 +74,6 @@ impl Server {
             &format!("{}:{}", self.ip, self.port),
             &self.path,
             &self.src,
-            &self.hosts,
             self.proxy.clone(),
             self.moon_server_v.clone(),
         )
