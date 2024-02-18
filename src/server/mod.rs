@@ -7,24 +7,11 @@ use std::{
     time::Duration,
 };
 
-use futures_util::Future;
 use tokio::time;
 
 use crate::star;
 
 mod service;
-
-async fn schedual<Task>(duration: Duration, task: Task)
-where
-    Task: Future<Output = io::Result<()>> + std::marker::Send + 'static,
-{
-    tokio::spawn(async move {
-        time::sleep(duration).await;
-        if let Err(e) = task.await {
-            log::error!("{e}");
-        }
-    });
-}
 
 async fn serve(
     name: &str,
@@ -77,10 +64,15 @@ impl Server {
     pub async fn run(self) -> io::Result<()> {
         let name = self.name.clone();
         let path = self.path.clone();
-        schedual(Duration::from_secs(10), async move {
-            star::report_uri(&name, self.port, &path, &self.moon_server_v).await
-        })
-        .await;
+        tokio::spawn(async move {
+            loop {
+                time::sleep(Duration::from_secs(10)).await;
+                if let Err(e) = star::report_uri(&name, self.port, &path, &self.moon_server_v).await
+                {
+                    log::error!("{e}");
+                }
+            }
+        });
         serve(
             &self.name,
             &format!("{}:{}", self.ip, self.port),
