@@ -1,13 +1,8 @@
-mod service;
-mod util;
-
-use std::{
-    collections::BTreeMap,
-    io,
-    sync::{Arc, Mutex},
-};
+use std::{collections::BTreeMap, io};
 
 use earth::AsConfig;
+
+mod server;
 
 // public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone)]
@@ -28,7 +23,7 @@ impl Default for Config {
         Self {
             name: "light".to_string(),
             ip: "[::]".to_string(),
-            port: 8080,
+            port: 80,
             path: "/light".to_string(),
             hosts: Vec::new(),
             proxy: BTreeMap::new(),
@@ -40,7 +35,7 @@ impl Default for Config {
 }
 
 fn main() -> io::Result<()> {
-    // config
+    // Parse config
     let mut config = Config::default();
     let mut arg_v: Vec<String> = std::env::args().collect();
     arg_v.remove(0);
@@ -54,35 +49,23 @@ fn main() -> io::Result<()> {
         config.merge_by_arg_v(&arg_v);
     }
     config.merge_by_env(&format!("{}", config.name));
-
+    // Config log
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(&config.log_level))
         .init();
-
+    // Run server
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.thread_num as usize)
         .enable_all()
         .build()?
-        .block_on(async {
-            start_task(&config).await?;
-            serve(&config).await
-        })
-}
-
-async fn start_task(_: &Config) -> io::Result<()> {
-    Ok(())
-}
-
-async fn serve(config: &Config) -> io::Result<()> {
-    let domain = format!("{}:{}", config.ip, config.port);
-    service::init(&domain, &config.path, &config.hosts).await?;
-
-    let ctx = util::Context {
-        domain,
-        path: config.path.clone(),
-        name: config.name.clone(),
-        src: config.src.clone(),
-        proxy: Arc::new(Mutex::new(config.proxy.clone())),
-    };
-    log::info!("{} starting", ctx.name);
-    service::run(ctx).await
+        .block_on(
+            server::Server::new(
+                format!("{}:{}", config.ip, config.port),
+                config.path,
+                config.name,
+                config.src,
+                config.hosts,
+                config.proxy,
+            )
+            .run(),
+        )
 }

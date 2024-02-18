@@ -1,32 +1,37 @@
-use actix_web::{web, HttpResponse, Responder};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
-use crate::util::Context;
+use actix_web::{web, HttpResponse, Responder};
 
 use super::dto;
 
 #[actix_web::post("/system/add_proxy")]
 async fn add_proxy(
-    ctx: web::Data<Context>,
+    proxy_mp: web::Data<Arc<Mutex<BTreeMap<String, String>>>>,
     web::Json(proxy): web::Json<dto::Proxy>,
 ) -> impl Responder {
-    let mut proxies = ctx.proxy.lock().unwrap();
+    let mut proxies = proxy_mp.lock().unwrap();
     proxies.insert(proxy.path.clone(), proxy.url.clone());
     HttpResponse::Ok().finish()
 }
 
 #[actix_web::delete("/system/remove_proxy")]
 pub async fn remove_proxy(
-    ctx: web::Data<Context>,
+    proxy_mp: web::Data<Arc<Mutex<BTreeMap<String, String>>>>,
     web::Json(proxy): web::Json<dto::Proxy>,
 ) -> impl Responder {
-    let mut proxies = ctx.proxy.lock().unwrap();
+    let mut proxies = proxy_mp.lock().unwrap();
     proxies.remove(&proxy.path);
     HttpResponse::Ok().finish()
 }
 
 #[actix_web::get("/system/list_proxies")]
-pub async fn list_proxies(ctx: web::Data<Context>) -> impl Responder {
-    let proxies = ctx.proxy.lock().unwrap();
+pub async fn list_proxies(
+    proxy_mp: web::Data<Arc<Mutex<BTreeMap<String, String>>>>,
+) -> impl Responder {
+    let proxies = proxy_mp.lock().unwrap();
 
     let mut list = Vec::with_capacity(proxies.len());
     for proxy in &*proxies {
