@@ -4,42 +4,91 @@ use std::{
     collections::BTreeMap,
     io,
     sync::{Arc, Mutex},
+    time::Duration,
 };
+
+use futures_util::Future;
+use tokio::time;
+
+use crate::star;
 
 mod service;
 
+async fn schedual<Task>(duration: Duration, task: Task)
+where
+    Task: Future<Output = io::Result<()>> + std::marker::Send + 'static,
+{
+    tokio::spawn(async move {
+        time::sleep(duration).await;
+        if let Err(e) = task.await {
+            log::error!("{e}");
+        }
+    });
+}
+
+async fn serve(
+    name: &str,
+    domain: &str,
+    path: &str,
+    src: &str,
+    hosts: &Vec<String>,
+    proxy: Arc<Mutex<BTreeMap<String, String>>>,
+) -> io::Result<()> {
+    service::init(domain, path, hosts).await?;
+    log::info!("{} starting", name);
+    service::run(domain, path, src, proxy).await
+}
+
 // Public
 pub struct Server {
+    ip: String,
     name: String,
-    domain: String,
+    port: u16,
     path: String,
     src: String,
     hosts: Vec<String>,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
+    moon_server_v: Vec<String>,
 }
 
 impl Server {
     pub fn new(
-        domain: String,
+        ip: String,
+        port: u16,
         path: String,
         name: String,
         src: String,
         hosts: Vec<String>,
         proxy: BTreeMap<String, String>,
+        moon_server_v: Vec<String>,
     ) -> Self {
         Self {
-            domain,
+            ip,
+            port,
             path,
             name,
             src,
             hosts,
             proxy: Arc::new(Mutex::new(proxy)),
+            moon_server_v,
         }
     }
 
     pub async fn run(self) -> io::Result<()> {
-        service::init(&self.domain, &self.path, &self.hosts).await?;
-        log::info!("{} starting", self.name);
-        service::run(&self.domain, &self.path, &self.src, self.proxy.clone()).await
+        let name = self.name.clone();
+        let path = self.path.clone();
+        schedual(Duration::from_secs(10), async move {
+            star::report_uri(&name, self.port, &path, &self.moon_server_v).await
+        })
+        .await;
+        serve(
+            &self.name,
+            &format!("{}:{}", self.ip, self.port),
+            &self.path,
+            &self.src,
+            &self.hosts,
+            self.proxy.clone(),
+        )
+        .await
     }
 }

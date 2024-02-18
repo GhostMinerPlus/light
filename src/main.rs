@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, io};
 use earth::AsConfig;
 
 mod server;
+mod star;
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone)]
@@ -26,6 +27,7 @@ struct Config {
     src: String,
     /// Default: 8
     thread_num: u8,
+    moon_servers: Vec<String>,
 }
 
 impl Default for Config {
@@ -40,6 +42,7 @@ impl Default for Config {
             log_level: "info".to_string(),
             src: "dist".to_string(),
             thread_num: 8,
+            moon_servers: Vec::new(),
         }
     }
 }
@@ -69,12 +72,14 @@ fn main() -> io::Result<()> {
         .build()?
         .block_on(
             server::Server::new(
-                format!("{}:{}", config.ip, config.port),
+                config.ip,
+                config.port,
                 config.path,
                 config.name,
                 config.src,
                 config.hosts,
                 config.proxy,
+                config.moon_servers
             )
             .run(),
         )
