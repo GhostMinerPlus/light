@@ -16,31 +16,51 @@ fn get_global_ipv6() -> io::Result<String> {
 
     Err(io::Error::new(
         io::ErrorKind::NotFound,
-        "Faild to get a global ipv6 address",
+        "Faild to get a global ipv6",
     ))
 }
 
 // Public
-pub async fn report_uri(name: &str, port: u16, path: &str, host_v: &Vec<String>) -> io::Result<()> {
+pub async fn report_uri(
+    name: &str,
+    port: u16,
+    path: &str,
+    moon_server_uri_v: &Vec<String>,
+) -> io::Result<()> {
     let ipv6 = get_global_ipv6()?;
     let uri = format!("http://[{ipv6}]:{port}{path}");
-    let data = format!("{{\"name\":\"{}\",\"address\":\"{uri}\"}}", name);
-    for host in host_v {
-        let host = host.clone();
+    let data = format!("{{\"name\":\"{}\",\"uri\":\"{uri}\"}}", name);
+    for moon_server_uri in moon_server_uri_v {
+        let moon_server_uri = moon_server_uri.clone();
         let data = data.clone();
         tokio::spawn(async move {
-            log::info!("reporting uri to {host}");
+            log::info!("reporting uri to {moon_server_uri}");
             match reqwest::Client::new()
-                .post(&host)
+                .post(format!("{moon_server_uri}/report"))
                 .header("Content-Type", "application/json")
                 .body(data)
                 .send()
                 .await
             {
-                Ok(_) => log::info!("reported uri to {host}"),
-                Err(e) => log::error!("failed to report uri to {host}: {e}"),
+                Ok(_) => log::info!("reported uri to {moon_server_uri}"),
+                Err(e) => log::error!("failed to report uri to {moon_server_uri}: {e}"),
             }
         });
     }
     Ok(())
+}
+
+pub async fn get_uri_from_server_v(name: &str, moon_server_uri_v: &Vec<String>) -> io::Result<String> {
+    for moon_server_uri in moon_server_uri_v {
+        if let Ok(res) = reqwest::Client::new()
+            .get(format!("{moon_server_uri}/get?name={name}"))
+            .send()
+            .await
+        {
+            if let Ok(uri) = res.text().await {
+                return Ok(uri);
+            }
+        }
+    }
+    Err(io::Error::new(io::ErrorKind::Other, ""))
 }

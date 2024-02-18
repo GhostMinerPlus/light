@@ -13,11 +13,18 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::star;
+
 async fn proxy_fn(
     req: HttpRequest,
     mut payload: Payload,
-    url: String,
+    name: String,
+    tail_path: String,
+    moon_server_uri_v: Vec<String>,
 ) -> Result<ServiceResponse<BoxBody>, Error> {
+    let uri = star::get_uri_from_server_v(&name, &moon_server_uri_v).await.unwrap();
+    let url = format!("{uri}{tail_path}");
+
     let method = req.method().clone();
 
     let headers = {
@@ -110,14 +117,22 @@ where
             .app_data::<web::Data<Arc<Mutex<BTreeMap<String, String>>>>>()
             .unwrap()
             .clone();
+        let moon_server_uri_v = req.app_data::<web::Data<Vec<String>>>().unwrap().clone();
         let path = req.path();
         log::info!("request: {path}");
         let proxies = proxy.lock().unwrap();
-        for (name, url) in &*proxies {
-            if path.starts_with(name) {
-                let url = format!("{url}{}", &path[name.len()..]);
+        for (fake_path, name) in &*proxies {
+            if path.starts_with(fake_path) {
+                let tail_path = path[fake_path.len()..].to_string();
                 let (req, payload) = req.into_parts();
-                return Box::pin(proxy_fn(req, payload, url));
+
+                return Box::pin(proxy_fn(
+                    req,
+                    payload,
+                    name.to_string(),
+                    tail_path,
+                    moon_server_uri_v.to_vec(),
+                ));
             }
         }
         drop(proxies);

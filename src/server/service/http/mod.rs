@@ -58,12 +58,14 @@ pub async fn run(
     path: String,
     src: String,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
+    moon_server_v: Vec<String>,
 ) -> io::Result<()> {
     log::info!("http service uri: http://{domain}{path}");
 
     let server = HttpServer::new(move || {
         actix_web::App::new()
             .app_data(web::Data::new(proxy.clone()))
+            .app_data(web::Data::new(moon_server_v.clone()))
             .wrap(middle_ware::Proxy::new())
             .service(config(&path, &src))
     });

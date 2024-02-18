@@ -79,7 +79,7 @@ fn main() -> io::Result<()> {
                 config.src,
                 config.hosts,
                 config.proxy,
-                config.moon_servers
+                config.moon_servers,
             )
             .run(),
         )

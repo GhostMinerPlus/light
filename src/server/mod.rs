@@ -20,10 +20,11 @@ async fn serve(
     src: &str,
     hosts: &Vec<String>,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
+    moon_server_v: Vec<String>,
 ) -> io::Result<()> {
     service::init(domain, path, hosts).await?;
     log::info!("{} starting", name);
-    service::run(domain, path, src, proxy).await
+    service::run(domain, path, src, proxy, moon_server_v).await
 }
 
 // Public
@@ -64,11 +65,11 @@ impl Server {
     pub async fn run(self) -> io::Result<()> {
         let name = self.name.clone();
         let path = self.path.clone();
+        let moon_server_v = self.moon_server_v.clone();
         tokio::spawn(async move {
             loop {
                 time::sleep(Duration::from_secs(10)).await;
-                if let Err(e) = star::report_uri(&name, self.port, &path, &self.moon_server_v).await
-                {
+                if let Err(e) = star::report_uri(&name, self.port, &path, &moon_server_v).await {
                     log::error!("{e}");
                 }
             }
@@ -80,6 +81,7 @@ impl Server {
             &self.src,
             &self.hosts,
             self.proxy.clone(),
+            self.moon_server_v.clone(),
         )
         .await
     }
