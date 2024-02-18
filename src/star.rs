@@ -61,6 +61,7 @@ pub async fn get_uri_from_server_v(
             .await
         {
             if let Ok(uri) = res.text().await {
+                log::info!("{name}'s uri: {uri}");
                 return Ok(uri);
             }
         }

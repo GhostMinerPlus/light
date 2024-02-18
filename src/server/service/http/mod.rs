@@ -13,6 +13,11 @@ use std::{
 
 mod middle_ware;
 
+struct Context {
+    proxy: Arc<Mutex<BTreeMap<String, String>>>,
+    moon_server_v: Vec<String>,
+}
+
 fn config(path: &str, src: &str) -> impl HttpServiceFactory {
     let src = src.to_string();
     actix_web::web::scope(&path)
@@ -46,8 +51,10 @@ pub async fn run(
 
     let server = HttpServer::new(move || {
         actix_web::App::new()
-            .app_data(web::Data::new(proxy.clone()))
-            .app_data(web::Data::new(moon_server_v.clone()))
+            .app_data(web::Data::new(Context {
+                proxy: proxy.clone(),
+                moon_server_v: moon_server_v.clone(),
+            }))
             .wrap(middle_ware::Proxy::new())
             .service(config(&path, &src))
     });

@@ -7,13 +7,11 @@ use actix_web::{
 };
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
-use std::{
-    collections::BTreeMap,
-    future::{self, Ready},
-    sync::{Arc, Mutex},
-};
+use std::
+    future::{self, Ready}
+;
 
-use crate::star;
+use crate::{server::service::http::Context, star};
 
 async fn proxy_fn(
     req: HttpRequest,
@@ -115,14 +113,12 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let proxy = req
-            .app_data::<web::Data<Arc<Mutex<BTreeMap<String, String>>>>>()
-            .unwrap()
-            .clone();
-        let moon_server_uri_v = req.app_data::<web::Data<Vec<String>>>().unwrap().clone();
+        let ctx = req.app_data::<web::Data<Context>>().unwrap().clone();
+
         let path = req.path();
         log::info!("request: {path}");
-        let proxies = proxy.lock().unwrap();
+        let proxies = ctx.proxy.lock().unwrap();
+        log::debug!("proxy size: {}", proxies.len());
         for (fake_path, name) in &*proxies {
             if path.starts_with(fake_path) {
                 let tail_path = path[fake_path.len()..].to_string();
@@ -133,7 +129,7 @@ where
                     payload,
                     name.to_string(),
                     tail_path,
-                    moon_server_uri_v.to_vec(),
+                    ctx.moon_server_v.to_vec(),
                 ));
             }
         }

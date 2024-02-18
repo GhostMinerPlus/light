@@ -8,7 +8,7 @@ mod server;
 mod star;
 
 // Public
-#[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
 /// Config
 struct Config {
     /// Default: light
@@ -63,6 +63,7 @@ fn main() -> io::Result<()> {
     // Config log
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(&config.log_level))
         .init();
+    log::debug!("{:?}", config);
     // Run server
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.thread_num as usize)
