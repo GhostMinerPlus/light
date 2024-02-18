@@ -458,7 +458,7 @@ dependencies = [
 [[package]]
 name = "earth"
 version = "0.1.0"
-source = "git+https://github.com/GhostMinerPlus/earth.git#926740e8e73a9e36a2be68eed71a417d596e4fa7"
+source = "git+https://github.com/GhostMinerPlus/earth.git#6105bca0c74f62a08a1ddff146c3bb11d0b7fb8e"
 dependencies = [
  "macros",
  "serde",
@@ -904,7 +904,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/GhostMinerPlus/earth.git#926740e8e73a9e36a2be68eed71a417d596e4fa7"
+source = "git+https://github.com/GhostMinerPlus/earth.git#6105bca0c74f62a08a1ddff146c3bb11d0b7fb8e"
 dependencies = [
  "quote",
  "syn 2.0.49",
