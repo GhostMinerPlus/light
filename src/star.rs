@@ -28,7 +28,7 @@ pub async fn report_uri(
     moon_server_uri_v: &Vec<String>,
 ) -> io::Result<()> {
     let ipv6 = get_global_ipv6()?;
-    let uri = format!("http://[{ipv6}]:{port}{path}");
+    let uri = format!("http://[{ipv6}]:{port}{path}/");
     let data = format!("{{\"name\":\"{}\",\"uri\":\"{uri}\"}}", name);
     for moon_server_uri in moon_server_uri_v {
         let moon_server_uri = moon_server_uri.clone();
