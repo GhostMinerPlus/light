@@ -7,24 +7,15 @@ use actix_web::{
 };
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
-use std::
-    future::{self, Ready}
-;
+use std::future::{self, Ready};
 
-use crate::{server::service::http::Context, star};
+use crate::server::service::http::Context;
 
 async fn proxy_fn(
     req: HttpRequest,
     mut payload: Payload,
-    name: String,
-    tail_path: String,
-    moon_server_uri_v: Vec<String>,
+    uri: String,
 ) -> Result<ServiceResponse<BoxBody>, Error> {
-    let uri = star::get_uri_from_server_v(&name, &moon_server_uri_v)
-        .await
-        .unwrap();
-    let url = format!("{uri}{tail_path}");
-
     let method = req.method().clone();
 
     let headers = {
@@ -35,12 +26,12 @@ async fn proxy_fn(
         headers
     };
 
-    let url = {
+    let uri = {
         let query = req.query_string();
         if query.is_empty() {
-            url
+            uri
         } else {
-            format!("{url}?{query}")
+            format!("{uri}?{query}")
         }
     };
 
@@ -60,10 +51,10 @@ async fn proxy_fn(
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
-    log::info!("proxy: {} {url}", method.as_str());
+    log::info!("proxy: {} {uri}", method.as_str());
 
     match client
-        .request(method, url)
+        .request(method, uri)
         .headers(headers)
         .body(body)
         .send()
@@ -119,18 +110,11 @@ where
         log::info!("request: {path}");
         let proxies = ctx.proxy.lock().unwrap();
         log::debug!("proxy size: {}", proxies.len());
-        for (fake_path, name) in &*proxies {
+        for (fake_path, uri) in &*proxies {
             if path.starts_with(fake_path) {
                 let tail_path = path[fake_path.len()..].to_string();
                 let (req, payload) = req.into_parts();
-
-                return Box::pin(proxy_fn(
-                    req,
-                    payload,
-                    name.to_string(),
-                    tail_path,
-                    ctx.moon_server_v.to_vec(),
-                ));
+                return Box::pin(proxy_fn(req, payload, format!("{uri}{tail_path}")));
             }
         }
         drop(proxies);

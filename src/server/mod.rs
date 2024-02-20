@@ -19,10 +19,9 @@ async fn serve(
     path: &str,
     src: &str,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
-    moon_server_v: Vec<String>,
 ) -> io::Result<()> {
     log::info!("{} starting", name);
-    service::run(domain, path, src, proxy, moon_server_v).await
+    service::run(domain, path, src, proxy).await
 }
 
 // Public
@@ -75,7 +74,6 @@ impl Server {
             &self.path,
             &self.src,
             self.proxy.clone(),
-            self.moon_server_v.clone(),
         )
         .await
     }

@@ -15,7 +15,6 @@ mod middle_ware;
 
 struct Context {
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
-    moon_server_v: Vec<String>,
 }
 
 fn config(path: &str, src: &str) -> impl HttpServiceFactory {
@@ -45,7 +44,6 @@ pub async fn run(
     path: String,
     src: String,
     proxy: Arc<Mutex<BTreeMap<String, String>>>,
-    moon_server_v: Vec<String>,
 ) -> io::Result<()> {
     log::info!("http service uri: http://{domain}{path}");
 
@@ -53,7 +51,6 @@ pub async fn run(
         actix_web::App::new()
             .app_data(web::Data::new(Context {
                 proxy: proxy.clone(),
-                moon_server_v: moon_server_v.clone(),
             }))
             .wrap(middle_ware::Proxy::new())
             .service(config(&path, &src))
