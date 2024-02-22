@@ -56,18 +56,24 @@ impl Server {
         }
     }
 
+    /// Server run itself. This will block current thread.
     pub async fn run(self) -> io::Result<()> {
-        let name = self.name.clone();
-        let path = self.path.clone();
-        let moon_server_v = self.moon_server_v.clone();
-        tokio::spawn(async move {
-            loop {
-                time::sleep(Duration::from_secs(10)).await;
-                if let Err(e) = star::report_uri(&name, self.port, &path, &moon_server_v).await {
-                    log::error!("{e}");
+        if !self.moon_server_v.is_empty() {
+            log::debug!("moon_server_v is not empty");
+            let name = self.name.clone();
+            let path = self.path.clone();
+            let moon_server_v = self.moon_server_v.clone();
+            tokio::spawn(async move {
+                log::debug!("starting moon_server_v loop");
+                loop {
+                    time::sleep(Duration::from_secs(10)).await;
+                    if let Err(e) = star::report_uri(&name, self.port, &path, &moon_server_v).await
+                    {
+                        log::error!("{e}");
+                    }
                 }
-            }
-        });
+            });
+        }
         serve(
             &self.name,
             &format!("{}:{}", self.ip, self.port),
