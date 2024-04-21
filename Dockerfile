@@ -6,4 +6,4 @@ RUN cargo build --release
 
 FROM archlinux:latest
 
-COPY --from=builder target/release/light /usr/bin/
+COPY --from=builder /root/share/repository/light/target/release/light /usr/bin/
