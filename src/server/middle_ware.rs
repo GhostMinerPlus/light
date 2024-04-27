@@ -5,11 +5,14 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
+use edge_lib::mem_table::MemTable;
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
-use std::future::{self, Ready};
-
-use crate::server::service::http::Context;
+use std::{
+    future::{self, Ready},
+    sync::Arc,
+};
+use tokio::sync::Mutex;
 
 async fn proxy_fn(
     req: HttpRequest,
@@ -104,20 +107,23 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let ctx = req.app_data::<web::Data<Context>>().unwrap().clone();
-
+        let global = req
+            .app_data::<web::Data<Arc<Mutex<MemTable>>>>()
+            .unwrap()
+            .clone();
+        let mut dm = (*global).blocking_lock();
+        let proxy_v = dm.get_target_v_unchecked("HttpServer", "proxy");
         let path = req.path();
         log::info!("request: {path}");
-        let proxies = ctx.proxy.lock().unwrap();
-        log::debug!("proxy size: {}", proxies.len());
-        for (fake_path, uri) in &*proxies {
-            if path.starts_with(fake_path) {
+        for proxy in &proxy_v {
+            let fake_path = dm.get_target(proxy, "name").unwrap();
+            let uri = dm.get_target(proxy, "uri").unwrap();
+            if path.starts_with(&fake_path) {
                 let tail_path = path[fake_path.len()..].to_string();
                 let (req, payload) = req.into_parts();
                 return Box::pin(proxy_fn(req, payload, format!("{uri}{tail_path}")));
             }
         }
-        drop(proxies);
         Box::pin(self.service.call(req))
     }
 }
