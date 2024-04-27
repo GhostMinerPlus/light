@@ -93,16 +93,16 @@ fn main() -> io::Result<()> {
             loop {
                 log::info!("alive");
                 time::sleep(Duration::from_secs(10)).await;
-                if let Err(e) = star::report_uri(
-                    &config.name,
-                    config.port,
-                    &config.path,
-                    &config.moon_servers,
-                )
-                .await
-                {
-                    log::error!("{e}");
-                }
+                // if let Err(e) = star::report_uri(
+                //     &config.name,
+                //     config.port,
+                //     &config.path,
+                //     &config.moon_servers,
+                // )
+                // .await
+                // {
+                //     log::error!("{e}");
+                // }
             }
         })
 }
