@@ -89,27 +89,20 @@ fn main() -> io::Result<()> {
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(async move {
-                loop {
-                    log::info!("alive");
-                    time::sleep(Duration::from_secs(10)).await;
-                    if let Err(e) = star::report_uri(
-                        &config.name,
-                        config.port,
-                        &config.path,
-                        &config.moon_servers,
-                    )
-                    .await
-                    {
-                        log::error!("{e}");
-                    }
-                }
-            });
-
             tokio::task::spawn_local(server::WebServer::new(global).run());
             loop {
                 log::info!("alive");
                 time::sleep(Duration::from_secs(10)).await;
+                if let Err(e) = star::report_uri(
+                    &config.name,
+                    config.port,
+                    &config.path,
+                    &config.moon_servers,
+                )
+                .await
+                {
+                    log::error!("{e}");
+                }
             }
         })
 }
