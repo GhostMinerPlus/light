@@ -106,7 +106,7 @@ fn main() -> io::Result<()> {
                 }
             });
 
-            // server::WebServer::new(global).run().await
+            tokio::task::spawn_local(server::WebServer::new(global).run());
             loop {
                 log::info!("alive");
                 time::sleep(Duration::from_secs(10)).await;
