@@ -1,8 +1,10 @@
 //! Start server
 
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, io, sync::Arc, time::Duration};
 
 use earth::AsConfig;
+use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
+use tokio::{sync::Mutex, time};
 
 mod server;
 mod star;
@@ -69,16 +71,45 @@ fn main() -> io::Result<()> {
         .worker_threads(config.thread_num as usize)
         .enable_all()
         .build()?
-        .block_on(
-            server::Server::new(
-                config.ip,
-                config.port,
-                config.path,
-                config.name,
-                config.src,
-                config.proxy,
-                config.moon_servers,
-            )
-            .run(),
-        )
+        .block_on(async {
+            let global = Arc::new(Mutex::new(mem_table::MemTable::new()));
+            let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
+            // config.ip, config.port, config.name
+            let script = [
+                format!("PktUdpServer->name = = {} _", config.name),
+                format!("PktUdpServer->ip = = {} _", config.ip),
+                format!("PktUdpServer->port = = {} _", config.port),
+                format!("HttpServer->name = = {} _", config.name),
+                format!("HttpServer->ip = = {} _", config.ip),
+                format!("HttpServer->port = = {} _", config.port),
+            ]
+            .join("\\n");
+            edge_engine
+                .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+                .await?;
+            edge_engine.commit().await?;
+
+            tokio::spawn(async move {
+                loop {
+                    log::info!("alive");
+                    time::sleep(Duration::from_secs(10)).await;
+                    if let Err(e) = star::report_uri(
+                        &config.name,
+                        config.port,
+                        &config.path,
+                        &config.moon_servers,
+                    )
+                    .await
+                    {
+                        log::error!("{e}");
+                    }
+                }
+            });
+
+            // server::WebServer::new(global).run().await
+            loop {
+                log::info!("alive");
+                time::sleep(Duration::from_secs(10)).await;
+            }
+        })
 }
