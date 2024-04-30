@@ -48,7 +48,7 @@ impl WebServer {
         let path = rs["info"][3].as_str().unwrap().to_string();
         let src = rs["info"][4].as_str().unwrap().to_string();
 
-        let domain = format!("{ip}{port}");
+        let domain = format!("{ip}:{port}");
         log::info!("http service {name} uri: http://{domain}{path}");
         let server = HttpServer::new(move || {
             actix_web::App::new()
