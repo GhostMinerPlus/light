@@ -43,13 +43,13 @@ impl HttpConnector {
             let uri_v = &rs["info"];
 
             let script = [
-                &format!("$-$server_exists = inner root->web_server {name}<-name _"),
-                "$-$web_server = if $-$server_exists ?",
-                &format!("$-$web_server->name = = {name} _"),
-                &format!("$-$web_server->ip = = {ip} _"),
-                &format!("$-$web_server->port = = {port} _"),
-                &format!("$-$web_server->path = = {path} _"),
-                "$->$new_server += $->$web_server != $-$server_exists",
+                &format!("$->$server_exists = inner root->web_server {name}<-name _"),
+                "$->$web_server = if $->$server_exists ?",
+                &format!("$->$web_server->name = = {name} _"),
+                &format!("$->$web_server->ip = = {ip} _"),
+                &format!("$->$web_server->port = = {port} _"),
+                &format!("$->$web_server->path = = {path} _"),
+                "$->$new_server += $->$web_server != $->$server_exists",
                 "info",
             ]
             .join("\\n");
@@ -86,13 +86,13 @@ mod tests {
                 let port = "8080";
                 let path = "/test";
                 let script = [
-                    &format!("$-$server_exists = inner root->web_server {name}<-name"),
-                    "$-$web_server = if $-$server_exists ?",
-                    &format!("$-$web_server->name = = {name} _"),
-                    &format!("$-$web_server->ip = = {ip} _"),
-                    &format!("$-$web_server->port = = {port} _"),
-                    &format!("$-$web_server->path = = {path} _"),
-                    "root->web_server += != $->$web_server $-$server_exists",
+                    &format!("$->$server_exists = inner root->web_server {name}<-name"),
+                    "$->$web_server = if $->$server_exists ?",
+                    &format!("$->$web_server->name = = {name} _"),
+                    &format!("$->$web_server->ip = = {ip} _"),
+                    &format!("$->$web_server->port = = {port} _"),
+                    &format!("$->$web_server->path = = {path} _"),
+                    "root->web_server += != $->$web_server $->$server_exists",
                     "info",
                 ]
                 .join("\\n");
