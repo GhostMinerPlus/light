@@ -92,7 +92,7 @@ mod tests {
                     &format!("$->$web_server->ip = = {ip} _"),
                     &format!("$->$web_server->port = = {port} _"),
                     &format!("$->$web_server->path = = {path} _"),
-                    "root->web_server += != $->$web_server $->$server_exists",
+                    "root->web_server += left $->$web_server $->$server_exists",
                     "info",
                 ]
                 .join("\\n");
