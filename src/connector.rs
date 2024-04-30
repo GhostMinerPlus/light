@@ -3,7 +3,7 @@ use std::{io, sync::Arc, time::Duration};
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
 use tokio::{sync::Mutex, time};
 
-use crate::util::{self, http_execute};
+use crate::util;
 
 pub struct HttpConnector {
     global: Arc<Mutex<MemTable>>,
@@ -32,14 +32,14 @@ impl HttpConnector {
             let name = rs["info"][0].as_str().unwrap();
             let ip = util::native::get_global_ipv6()?;
             let port = rs["info"][1].as_str().unwrap();
-            let path = rs["info"][2].as_str().unwrap().to_string();
+            let path = rs["info"][2].as_str().unwrap();
 
-            let script = ["$->$output = = HttpConnector->uri _", "info"].join("\\n");
+            let script = ["$->$output = = root->moon_server _", "moon_server"].join("\\n");
             let rs = edge_engine
                 .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
                 .await?;
             log::debug!("{rs}");
-            let uri_v = &rs["info"];
+            let moon_server_v = &rs["moon_server"];
 
             let script = [
                 &format!("$->$server_exists = inner root->web_server {name}<-name"),
@@ -52,9 +52,8 @@ impl HttpConnector {
                 "info",
             ]
             .join("\\n");
-            for uri in uri_v.members() {
-                let uri = uri.as_str().unwrap();
-                http_execute(uri, script.clone()).await?;
+            for moon_server in moon_server_v.members() {
+                util::http_execute(moon_server.as_str().unwrap(), script.clone()).await?;
             }
 
             time::sleep(Duration::from_secs(10)).await;
