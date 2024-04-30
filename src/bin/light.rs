@@ -1,11 +1,11 @@
 //! Start server
 
-use std::{collections::BTreeMap, io, sync::Arc};
+use std::{collections::BTreeMap, io, sync::Arc, time::Duration};
 
 use earth::AsConfig;
 use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
 use light::{connector, server};
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, task, time};
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
@@ -87,6 +87,10 @@ fn main() -> io::Result<()> {
             edge_engine.commit().await?;
 
             tokio::spawn(connector::HttpConnector::new(global.clone()).run());
-            server::WebServer::new(global).run().await
+            task::spawn_local(server::WebServer::new(global).run());
+            loop {
+                log::info!("alive");
+                time::sleep(Duration::from_secs(10)).await;
+            }
         })
 }
