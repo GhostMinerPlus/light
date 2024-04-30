@@ -86,7 +86,7 @@ mod tests {
                 let port = "8080";
                 let path = "/test";
                 let script = [
-                    &format!("$-$server_exists = inner root->web_server {name}<-name _"),
+                    &format!("$-$server_exists = inner root->web_server {name}<-name"),
                     "$-$web_server = if $-$server_exists ?",
                     &format!("$-$web_server->name = = {name} _"),
                     &format!("$-$web_server->ip = = {ip} _"),
