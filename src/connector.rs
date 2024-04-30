@@ -1,4 +1,6 @@
-use std::{io, sync::{Arc, Mutex}, time::Duration};
+use std::{
+    io, sync::{Arc, Mutex}, time::Duration
+};
 
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
 use tokio::time;
@@ -25,19 +27,39 @@ impl HttpConnector {
                 "info",
             ]
             .join("\\n");
-            let rs = edge_engine
+            let rs = match edge_engine
                 .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
-                .await?;
+                .await
+            {
+                Ok(rs) => rs,
+                Err(e) => {
+                    log::warn!("when execute:\n{e}");
+                    continue;
+                }
+            };
             log::debug!("{rs}");
             let name = rs["info"][0].as_str().unwrap();
-            let ip = util::native::get_global_ipv6()?;
+            let ip = match util::native::get_global_ipv6() {
+                Ok(ip) => ip,
+                Err(e) => {
+                    log::warn!("when get_global_ipv6:\n{e}");
+                    continue;
+                }
+            };
             let port = rs["info"][1].as_str().unwrap();
             let path = rs["info"][2].as_str().unwrap();
 
             let script = ["$->$output = = root->moon_server _", "moon_server"].join("\\n");
-            let rs = edge_engine
+            let rs = match edge_engine
                 .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
-                .await?;
+                .await
+            {
+                Ok(rs) => rs,
+                Err(e) => {
+                    log::warn!("when execute:\n{e}");
+                    continue;
+                }
+            };
             log::debug!("{rs}");
             let moon_server_v = &rs["moon_server"];
 
@@ -53,7 +75,11 @@ impl HttpConnector {
             ]
             .join("\\n");
             for moon_server in moon_server_v.members() {
-                util::http_execute(moon_server.as_str().unwrap(), script.clone()).await?;
+                if let Err(e) =
+                    util::http_execute(moon_server.as_str().unwrap(), script.clone()).await
+                {
+                    log::warn!("when http_execute:\n{e}");
+                }
             }
 
             time::sleep(Duration::from_secs(10)).await;
