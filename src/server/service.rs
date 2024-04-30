@@ -8,8 +8,7 @@ use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine}
 async fn execute(global: web::Data<Arc<Mutex<MemTable>>>, script: String) -> impl Responder {
     let mut edge_engine = EdgeEngine::new(DataManager::with_global((**global).clone()));
     let rs = edge_engine.execute(&json::parse(&script).unwrap()).await.unwrap();
-    // let mut proxies = ctx.proxy.lock().unwrap();
-    // proxies.insert(proxy.path.clone(), proxy.url.clone());
+    edge_engine.commit().await.unwrap();
     HttpResponse::Ok()
         .content_type("application/json")
         .body(rs.to_string())
