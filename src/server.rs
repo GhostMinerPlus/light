@@ -30,11 +30,11 @@ impl WebServer {
         let mut edge_engine = EdgeEngine::new(DataManager::with_global(self.global.clone()));
 
         let script = [
-            "$->$output = = WebServer->name _",
-            "$->$output += = WebServer->ip _",
-            "$->$output += = WebServer->port _",
-            "$->$output += = WebServer->path _",
-            "$->$output += = WebServer->src _",
+            "$->$output = = root->name _",
+            "$->$output += = root->ip _",
+            "$->$output += = root->port _",
+            "$->$output += = root->path _",
+            "$->$output += = root->src _",
             "info",
         ]
         .join("\\n");
