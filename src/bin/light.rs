@@ -1,11 +1,10 @@
 //! Start server
 
-use std::{collections::BTreeMap, io, sync::Arc};
+use std::{collections::BTreeMap, io, sync::{Arc, Mutex}};
 
 use earth::AsConfig;
 use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
 use light::{connector, server};
-use tokio::sync::Mutex;
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]

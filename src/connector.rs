@@ -1,7 +1,7 @@
-use std::{io, sync::Arc, time::Duration};
+use std::{io, sync::{Arc, Mutex}, time::Duration};
 
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
-use tokio::{sync::Mutex, time};
+use tokio::time;
 
 use crate::util;
 
@@ -63,10 +63,9 @@ impl HttpConnector {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
-    use tokio::sync::Mutex;
 
     #[test]
     fn test() {
@@ -99,7 +98,7 @@ mod tests {
                     .await
                     .unwrap();
                 edge_engine.commit().await.unwrap();
-                let mut global = global.lock().await;
+                let mut global = global.lock().unwrap();
                 let rs = global.get_target_v_unchecked("root", "web_server");
                 assert!(!rs.is_empty());
             })

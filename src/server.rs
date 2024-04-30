@@ -2,11 +2,10 @@
 mod middle_ware;
 mod service;
 
-use std::{io, sync::Arc};
+use std::{io, sync::{Arc, Mutex}};
 
 use actix_web::{web, HttpServer};
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
-use tokio::sync::Mutex;
 
 // Public
 pub struct WebServer {

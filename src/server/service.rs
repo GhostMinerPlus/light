@@ -1,9 +1,8 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use actix_files::{Files, NamedFile};
 use actix_web::{dev::{HttpServiceFactory, ServiceRequest, ServiceResponse}, web, HttpResponse, Responder};
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
-use tokio::sync::Mutex;
 
 #[actix_web::post("/execute")]
 async fn execute(global: web::Data<Arc<Mutex<MemTable>>>, script: String) -> impl Responder {

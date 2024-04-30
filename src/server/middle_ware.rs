@@ -10,9 +10,8 @@ use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
     future::{self, Ready},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
-use tokio::sync::Mutex;
 
 async fn proxy_fn(
     req: HttpRequest,
@@ -111,7 +110,7 @@ where
             .app_data::<web::Data<Arc<Mutex<MemTable>>>>()
             .unwrap()
             .clone();
-        let mut dm = (*global).blocking_lock();
+        let mut dm = global.lock().unwrap();
         let proxy_v = dm.get_target_v_unchecked("HttpServer", "proxy");
         let path = req.path();
         log::info!("request: {path}");
