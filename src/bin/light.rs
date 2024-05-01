@@ -1,6 +1,10 @@
 //! Start server
 
-use std::{collections::BTreeMap, io, sync::{Arc, Mutex}};
+use std::{
+    collections::BTreeMap,
+    io,
+    sync::{Arc, Mutex},
+};
 
 use earth::AsConfig;
 use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
@@ -72,7 +76,7 @@ fn main() -> io::Result<()> {
             let global = Arc::new(Mutex::new(mem_table::MemTable::new()));
             let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
             // config.ip, config.port, config.name
-            let script = [
+            let base_script = [
                 format!("root->name = = {} _", config.name),
                 format!("root->ip = = {} _", config.ip),
                 format!("root->port = = {} _", config.port),
@@ -80,8 +84,16 @@ fn main() -> io::Result<()> {
                 format!("root->src = = {} _", config.src),
             ]
             .join("\\n");
+            let option_script = config
+                .moon_servers
+                .into_iter()
+                .map(|moon_server| format!("root->moon_server += = {moon_server} _\\n"))
+                .reduce(|acc, line| format!("{acc}{line}"))
+                .unwrap_or(String::new());
             edge_engine
-                .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+                .execute(
+                    &json::parse(&format!("{{\"{base_script}\\n{option_script}\": null}}")).unwrap(),
+                )
                 .await?;
             edge_engine.commit().await?;
 
