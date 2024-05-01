@@ -33,10 +33,10 @@ pub async fn http_execute(uri: &str, script: String) -> io::Result<String> {
         .await
         .map_err(|e| {
             log::error!("{e}");
-            io::Error::new(io::ErrorKind::Other, e)
+            io::Error::other(e)
         })?;
     res.text().await.map_err(|e| {
         log::error!("{e}");
-        io::Error::new(io::ErrorKind::Other, e)
+        io::Error::other(e)
     })
 }
