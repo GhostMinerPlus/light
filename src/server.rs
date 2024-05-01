@@ -2,11 +2,10 @@
 mod middle_ware;
 mod service;
 
-use std::{io, sync::Arc};
+use std::{io, sync::{Arc, Mutex}};
 
 use actix_web::{web, HttpServer};
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
-use tokio::sync::Mutex;
 
 // Public
 pub struct WebServer {
@@ -30,11 +29,11 @@ impl WebServer {
         let mut edge_engine = EdgeEngine::new(DataManager::with_global(self.global.clone()));
 
         let script = [
-            "$->$output = = WebServer->name _",
-            "$->$output += = WebServer->ip _",
-            "$->$output += = WebServer->port _",
-            "$->$output += = WebServer->path _",
-            "$->$output += = WebServer->src _",
+            "$->$output = = root->name _",
+            "$->$output += = root->ip _",
+            "$->$output += = root->port _",
+            "$->$output += = root->path _",
+            "$->$output += = root->src _",
             "info",
         ]
         .join("\\n");
@@ -48,7 +47,7 @@ impl WebServer {
         let path = rs["info"][3].as_str().unwrap().to_string();
         let src = rs["info"][4].as_str().unwrap().to_string();
 
-        let domain = format!("{ip}{port}");
+        let domain = format!("{ip}:{port}");
         log::info!("http service {name} uri: http://{domain}{path}");
         let server = HttpServer::new(move || {
             actix_web::App::new()

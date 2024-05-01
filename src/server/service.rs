@@ -1,16 +1,14 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use actix_files::{Files, NamedFile};
 use actix_web::{dev::{HttpServiceFactory, ServiceRequest, ServiceResponse}, web, HttpResponse, Responder};
 use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
-use tokio::sync::Mutex;
 
 #[actix_web::post("/execute")]
 async fn execute(global: web::Data<Arc<Mutex<MemTable>>>, script: String) -> impl Responder {
     let mut edge_engine = EdgeEngine::new(DataManager::with_global((**global).clone()));
     let rs = edge_engine.execute(&json::parse(&script).unwrap()).await.unwrap();
-    // let mut proxies = ctx.proxy.lock().unwrap();
-    // proxies.insert(proxy.path.clone(), proxy.url.clone());
+    edge_engine.commit().await.unwrap();
     HttpResponse::Ok()
         .content_type("application/json")
         .body(rs.to_string())

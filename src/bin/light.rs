@@ -1,13 +1,10 @@
 //! Start server
 
-use std::{collections::BTreeMap, io, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, io, sync::{Arc, Mutex}};
 
 use earth::AsConfig;
 use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
-use tokio::{sync::Mutex, time};
-
-mod server;
-mod star;
+use light::{connector, server};
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
@@ -76,12 +73,11 @@ fn main() -> io::Result<()> {
             let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
             // config.ip, config.port, config.name
             let script = [
-                format!("PktUdpServer->name = = {} _", config.name),
-                format!("PktUdpServer->ip = = {} _", config.ip),
-                format!("PktUdpServer->port = = {} _", config.port),
-                format!("HttpServer->name = = {} _", config.name),
-                format!("HttpServer->ip = = {} _", config.ip),
-                format!("HttpServer->port = = {} _", config.port),
+                format!("root->name = = {} _", config.name),
+                format!("root->ip = = {} _", config.ip),
+                format!("root->port = = {} _", config.port),
+                format!("root->path = = {} _", config.path),
+                format!("root->src = = {} _", config.src),
             ]
             .join("\\n");
             edge_engine
@@ -89,27 +85,7 @@ fn main() -> io::Result<()> {
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(async move {
-                loop {
-                    log::info!("alive");
-                    time::sleep(Duration::from_secs(10)).await;
-                    if let Err(e) = star::report_uri(
-                        &config.name,
-                        config.port,
-                        &config.path,
-                        &config.moon_servers,
-                    )
-                    .await
-                    {
-                        log::error!("{e}");
-                    }
-                }
-            });
-
-            tokio::task::spawn_local(server::WebServer::new(global).run());
-            loop {
-                log::info!("alive");
-                time::sleep(Duration::from_secs(10)).await;
-            }
+            tokio::spawn(connector::HttpConnector::new(global.clone()).run());
+            server::WebServer::new(global).run().await
         })
 }
