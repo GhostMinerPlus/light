@@ -111,7 +111,7 @@ where
             .unwrap()
             .clone();
         let mut dm = global.lock().unwrap();
-        let proxy_v = dm.get_target_v_unchecked("HttpServer", "proxy");
+        let proxy_v = dm.get_target_v_unchecked("root", "proxy");
         let path = req.path();
         log::info!("request: {path}");
         for proxy in &proxy_v {
