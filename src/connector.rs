@@ -76,7 +76,7 @@ impl HttpConnector {
             .join("\\n");
             for moon_server in moon_server_v.members() {
                 if let Err(e) =
-                    util::http_execute(moon_server.as_str().unwrap(), script.clone()).await
+                    util::http_execute(moon_server.as_str().unwrap(), format!("{{\"{script}\": null}}")).await
                 {
                     log::warn!("when http_execute:\n{e}");
                 }
