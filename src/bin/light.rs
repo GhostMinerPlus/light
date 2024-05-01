@@ -90,9 +90,26 @@ fn main() -> io::Result<()> {
                 .map(|moon_server| format!("root->moon_server += = {moon_server} _\\n"))
                 .reduce(|acc, line| format!("{acc}{line}"))
                 .unwrap_or(String::new());
+            let option_script1 = config
+                .proxy
+                .into_iter()
+                .map(|(name, uri)| {
+                    [
+                        "$->$proxy = = ? _",
+                        &format!("$->$proxy->name = = {name} _"),
+                        &format!("$->$proxy->uri = = {uri} _"),
+                        "root->proxy += = $->$proxy _"
+                    ]
+                    .join("\\n")
+                })
+                .reduce(|acc, line| format!("{acc}{line}"))
+                .unwrap_or(String::new());
             edge_engine
                 .execute(
-                    &json::parse(&format!("{{\"{base_script}\\n{option_script}\": null}}")).unwrap(),
+                    &json::parse(&format!(
+                        "{{\"{base_script}\\n{option_script}\\n{option_script1}\": null}}"
+                    ))
+                    .unwrap(),
                 )
                 .await?;
             edge_engine.commit().await?;
