@@ -3,11 +3,10 @@
 use std::{
     collections::BTreeMap,
     io,
-    sync::{Arc, Mutex},
 };
 
 use earth::AsConfig;
-use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
 use light::{connector, server};
 
 // Public
@@ -73,8 +72,8 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let global = Arc::new(Mutex::new(mem_table::MemTable::new()));
-            let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
+            let dm = DataManager::new();
+            let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
             let base_script = [
                 format!("root->name = = {} _", config.name),
@@ -114,7 +113,7 @@ fn main() -> io::Result<()> {
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(connector::HttpConnector::new(global.clone()).run());
-            server::WebServer::new(global).run().await
+            tokio::spawn(connector::HttpConnector::new(dm.clone()).run());
+            server::WebServer::new(dm).run().await
         })
 }

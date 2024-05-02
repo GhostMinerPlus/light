@@ -2,14 +2,14 @@
 mod middle_ware;
 mod service;
 
-use std::{io, sync::{Arc, Mutex}};
+use std::io;
 
 use actix_web::{web, HttpServer};
-use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
 
 // Public
 pub struct WebServer {
-    global: Arc<Mutex<MemTable>>,
+    dm: DataManager,
     // ip: String,
     // name: String,
     // port: u16,
@@ -20,13 +20,13 @@ pub struct WebServer {
 }
 
 impl WebServer {
-    pub fn new(global: Arc<Mutex<MemTable>>) -> Self {
-        Self { global }
+    pub fn new(dm: DataManager) -> Self {
+        Self { dm }
     }
 
     /// Server run itself. This will block current thread.
     pub async fn run(self) -> io::Result<()> {
-        let mut edge_engine = EdgeEngine::new(DataManager::with_global(self.global.clone()));
+        let mut edge_engine = EdgeEngine::new(self.dm.clone());
 
         let script = [
             "$->$output = = root->name _",
@@ -51,7 +51,7 @@ impl WebServer {
         log::info!("http service {name} uri: http://{domain}{path}");
         let server = HttpServer::new(move || {
             actix_web::App::new()
-                .app_data(web::Data::new(self.global.clone()))
+                .app_data(web::Data::new(self.dm.clone()))
                 .wrap(middle_ware::Proxy::new())
                 .service(service::config(&path, &src))
         });

@@ -5,12 +5,12 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
-use edge_lib::mem_table::MemTable;
+use edge_lib::data::{AsDataManager, DataManager};
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
     future::{self, Ready},
-    sync::{Arc, Mutex},
+    sync::mpsc::channel,
 };
 
 async fn proxy_fn(
@@ -106,24 +106,35 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let global = req
-            .app_data::<web::Data<Arc<Mutex<MemTable>>>>()
-            .unwrap()
-            .clone();
-        let mut dm = global.lock().unwrap();
-        let proxy_v = dm.get_target_v_unchecked("root", "proxy");
-        let path = req.path();
+        let path = req.path().to_string();
         log::info!("request: {path}");
-        for proxy in &proxy_v {
-            let fake_path = dm.get_target(proxy, "name").unwrap();
-            let uri = dm.get_target(proxy, "uri").unwrap();
-            if path.starts_with(&fake_path) {
-                let tail_path = path[fake_path.len()..].to_string();
-                let (req, payload) = req.into_parts();
-                return Box::pin(proxy_fn(req, payload, format!("{uri}{tail_path}")));
+
+        let mut dm = req
+            .app_data::<web::Data<DataManager>>()
+            .unwrap()
+            .as_ref()
+            .clone();
+        let (tx, rx) = channel();
+        tokio::spawn(async move {
+            let proxy_v = dm.get_target_v("root", "proxy").await.unwrap();
+            for proxy in &proxy_v {
+                let fake_path = dm.get_target(proxy, "name").await.unwrap();
+                let uri = dm.get_target(proxy, "uri").await.unwrap();
+                if path.starts_with(&fake_path) {
+                    let _ = tx.send(Some((fake_path, uri)));
+                    return;
+                }
             }
+            let _ = tx.send(None);
+        });
+        match rx.recv().unwrap() {
+            Some((fake_path, uri)) => {
+                let tail_path = req.path()[fake_path.len()..].to_string();
+                let (req, payload) = req.into_parts();
+                Box::pin(proxy_fn(req, payload, format!("{uri}{tail_path}")))
+            }
+            None => Box::pin(self.service.call(req)),
         }
-        Box::pin(self.service.call(req))
     }
 }
 

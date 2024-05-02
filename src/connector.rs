@@ -1,21 +1,20 @@
 use std::{
     io,
-    sync::{Arc, Mutex},
     time::Duration,
 };
 
-use edge_lib::{data::DataManager, mem_table::MemTable, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
 use tokio::time;
 
 use crate::util;
 
 pub struct HttpConnector {
-    global: Arc<Mutex<MemTable>>,
+    dm: DataManager,
 }
 
 impl HttpConnector {
-    pub fn new(global: Arc<Mutex<MemTable>>) -> Self {
-        Self { global }
+    pub fn new(dm: DataManager) -> Self {
+        Self { dm }
     }
 
     pub async fn run(self) -> io::Result<()> {
@@ -29,7 +28,7 @@ impl HttpConnector {
     }
 
     async fn execute(&self) -> io::Result<()> {
-        let mut edge_engine = EdgeEngine::new(DataManager::with_global(self.global.clone()));
+        let mut edge_engine = EdgeEngine::new(self.dm.clone());
 
         let script = [
             "$->$output = = root->name _",
@@ -88,9 +87,7 @@ impl HttpConnector {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
-    use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
+    use edge_lib::{data::{AsDataManager, DataManager}, AsEdgeEngine, EdgeEngine};
 
     #[test]
     fn test() {
@@ -100,8 +97,8 @@ mod tests {
             .build()
             .unwrap()
             .block_on(async {
-                let global = Arc::new(Mutex::new(mem_table::MemTable::new()));
-                let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
+                let mut dm = DataManager::new();
+                let mut edge_engine = EdgeEngine::new(dm.clone());
                 // config.ip, config.port, config.name
                 let name = "test";
                 let ip = "0.0.0.0";
@@ -123,8 +120,7 @@ mod tests {
                     .await
                     .unwrap();
                 edge_engine.commit().await.unwrap();
-                let mut global = global.lock().unwrap();
-                let rs = global.get_target_v_unchecked("root", "web_server");
+                let rs = dm.get_target_v("root", "web_server").await.unwrap();
                 assert!(!rs.is_empty());
             })
     }
