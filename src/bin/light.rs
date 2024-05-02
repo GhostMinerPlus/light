@@ -1,13 +1,13 @@
 //! Start server
 
-use std::{collections::BTreeMap, io, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    io,
+};
 
 use earth::AsConfig;
-use edge_lib::{data::DataManager, mem_table, AsEdgeEngine, EdgeEngine};
-use tokio::{sync::Mutex, time};
-
-mod server;
-mod star;
+use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
+use light::{connector, server};
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
@@ -72,44 +72,48 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let global = Arc::new(Mutex::new(mem_table::MemTable::new()));
-            let mut edge_engine = EdgeEngine::new(DataManager::with_global(global.clone()));
+            let dm = DataManager::new();
+            let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
-            let script = [
-                format!("PktUdpServer->name = = {} _", config.name),
-                format!("PktUdpServer->ip = = {} _", config.ip),
-                format!("PktUdpServer->port = = {} _", config.port),
-                format!("HttpServer->name = = {} _", config.name),
-                format!("HttpServer->ip = = {} _", config.ip),
-                format!("HttpServer->port = = {} _", config.port),
+            let base_script = [
+                format!("root->name = = {} _", config.name),
+                format!("root->ip = = {} _", config.ip),
+                format!("root->port = = {} _", config.port),
+                format!("root->path = = {} _", config.path),
+                format!("root->src = = {} _", config.src),
             ]
             .join("\\n");
+            let option_script = config
+                .moon_servers
+                .into_iter()
+                .map(|moon_server| format!("root->moon_server += = {moon_server} _\\n"))
+                .reduce(|acc, line| format!("{acc}{line}"))
+                .unwrap_or(String::new());
+            let option_script1 = config
+                .proxy
+                .into_iter()
+                .map(|(name, uri)| {
+                    [
+                        "$->$proxy = = ? _",
+                        &format!("$->$proxy->name = = {name} _"),
+                        &format!("$->$proxy->uri = = {uri} _"),
+                        "root->proxy += = $->$proxy _"
+                    ]
+                    .join("\\n")
+                })
+                .reduce(|acc, line| format!("{acc}{line}"))
+                .unwrap_or(String::new());
             edge_engine
-                .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+                .execute(
+                    &json::parse(&format!(
+                        "{{\"{base_script}\\n{option_script}\\n{option_script1}\": null}}"
+                    ))
+                    .unwrap(),
+                )
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(async move {
-                loop {
-                    log::info!("alive");
-                    time::sleep(Duration::from_secs(10)).await;
-                    if let Err(e) = star::report_uri(
-                        &config.name,
-                        config.port,
-                        &config.path,
-                        &config.moon_servers,
-                    )
-                    .await
-                    {
-                        log::error!("{e}");
-                    }
-                }
-            });
-
-            tokio::task::spawn_local(server::WebServer::new(global).run());
-            loop {
-                log::info!("alive");
-                time::sleep(Duration::from_secs(10)).await;
-            }
+            tokio::spawn(connector::HttpConnector::new(dm.clone()).run());
+            server::WebServer::new(dm).run().await
         })
 }
