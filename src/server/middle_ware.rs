@@ -10,7 +10,7 @@ use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
     future::{self, Ready},
-    sync::mpsc::channel,
+    sync::Arc,
 };
 
 async fn proxy_fn(
@@ -91,7 +91,7 @@ async fn proxy_fn(
 
 // Public
 pub struct ProxyMiddleware<S> {
-    service: S,
+    service: Arc<S>,
 }
 
 impl<S> Service<ServiceRequest> for ProxyMiddleware<S>
@@ -106,35 +106,27 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let path = req.path().to_string();
-        log::info!("request: {path}");
-
-        let mut dm = req
-            .app_data::<web::Data<DataManager>>()
-            .unwrap()
-            .as_ref()
-            .clone();
-        let (tx, rx) = channel();
-        tokio::spawn(async move {
+        let service = self.service.clone();
+        Box::pin(async move {
+            let path = req.path().to_string();
+            log::info!("request: {path}");
+            let mut dm = req
+                .app_data::<web::Data<DataManager>>()
+                .unwrap()
+                .as_ref()
+                .clone();
             let proxy_v = dm.get_target_v("root", "proxy").await.unwrap();
             for proxy in &proxy_v {
                 let fake_path = dm.get_target(proxy, "name").await.unwrap();
                 let uri = dm.get_target(proxy, "uri").await.unwrap();
                 if path.starts_with(&fake_path) {
-                    let _ = tx.send(Some((fake_path, uri)));
-                    return;
+                    let tail_path = &path[fake_path.len()..];
+                    let (req, payload) = req.into_parts();
+                    return proxy_fn(req, payload, format!("{uri}{tail_path}")).await;
                 }
             }
-            let _ = tx.send(None);
-        });
-        match rx.recv().unwrap() {
-            Some((fake_path, uri)) => {
-                let tail_path = req.path()[fake_path.len()..].to_string();
-                let (req, payload) = req.into_parts();
-                Box::pin(proxy_fn(req, payload, format!("{uri}{tail_path}")))
-            }
-            None => Box::pin(self.service.call(req)),
-        }
+            service.call(req).await
+        })
     }
 }
 
@@ -165,6 +157,8 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        future::ready(Ok(ProxyMiddleware { service }))
+        future::ready(Ok(ProxyMiddleware {
+            service: Arc::new(service),
+        }))
     }
 }
