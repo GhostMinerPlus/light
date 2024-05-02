@@ -10,13 +10,6 @@ use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
 // Public
 pub struct WebServer {
     dm: DataManager,
-    // ip: String,
-    // name: String,
-    // port: u16,
-    // path: String,
-    // src: String,
-    // proxy: Arc<Mutex<BTreeMap<String, String>>>,
-    // moon_server_v: Vec<String>,
 }
 
 impl WebServer {
