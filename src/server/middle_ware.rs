@@ -5,7 +5,7 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
-use edge_lib::data::{AsDataManager, DataManager};
+use edge_lib::data::AsDataManager;
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
@@ -111,10 +111,10 @@ where
             let path = req.path().to_string();
             log::info!("request: {path}");
             let mut dm = req
-                .app_data::<web::Data<DataManager>>()
+                .app_data::<web::Data<Box<dyn AsDataManager>>>()
                 .unwrap()
                 .as_ref()
-                .clone();
+                .divide();
             let proxy_v = dm.get_target_v("root", "proxy").await.unwrap();
             for proxy in &proxy_v {
                 let fake_path = dm.get_target(proxy, "name").await.unwrap();

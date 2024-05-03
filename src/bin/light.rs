@@ -6,7 +6,7 @@ use std::{
 };
 
 use earth::AsConfig;
-use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::{AsDataManager, DataManager}, AsEdgeEngine, EdgeEngine};
 use light::{connector, server};
 
 // Public
@@ -73,7 +73,7 @@ fn main() -> io::Result<()> {
         .build()?
         .block_on(async {
             let dm = DataManager::new();
-            let mut edge_engine = EdgeEngine::new(dm.clone());
+            let mut edge_engine = EdgeEngine::new(dm.divide());
             // config.ip, config.port, config.name
             let base_script = [
                 format!("root->name = = {} _", config.name),
@@ -113,7 +113,7 @@ fn main() -> io::Result<()> {
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(connector::HttpConnector::new(dm.clone()).run());
-            server::WebServer::new(dm).run().await
+            tokio::spawn(connector::HttpConnector::new(dm.divide()).run());
+            server::WebServer::new(dm.divide()).run().await
         })
 }

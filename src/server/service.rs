@@ -1,10 +1,10 @@
 use actix_files::{Files, NamedFile};
 use actix_web::{dev::{HttpServiceFactory, ServiceRequest, ServiceResponse}, web, HttpResponse, Responder};
-use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine};
 
 #[actix_web::post("/execute")]
-async fn execute(dm: web::Data<DataManager>, script: String) -> impl Responder {
-    let mut edge_engine = EdgeEngine::new((**dm).clone());
+async fn execute(dm: web::Data<Box<dyn AsDataManager>>, script: String) -> impl Responder {
+    let mut edge_engine = EdgeEngine::new(dm.divide());
     let rs = edge_engine.execute(&json::parse(&script).unwrap()).await.unwrap();
     edge_engine.commit().await.unwrap();
     HttpResponse::Ok()

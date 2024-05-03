@@ -3,17 +3,17 @@ use std::{
     time::Duration,
 };
 
-use edge_lib::{data::DataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine};
 use tokio::time;
 
 use crate::util;
 
 pub struct HttpConnector {
-    dm: DataManager,
+    dm: Box<dyn AsDataManager>,
 }
 
 impl HttpConnector {
-    pub fn new(dm: DataManager) -> Self {
+    pub fn new(dm: Box<dyn AsDataManager>) -> Self {
         Self { dm }
     }
 
@@ -28,7 +28,7 @@ impl HttpConnector {
     }
 
     async fn execute(&self) -> io::Result<()> {
-        let mut edge_engine = EdgeEngine::new(self.dm.clone());
+        let mut edge_engine = EdgeEngine::new(self.dm.divide());
 
         let script = [
             "$->$output = = root->name _",
@@ -98,7 +98,7 @@ mod tests {
             .unwrap()
             .block_on(async {
                 let mut dm = DataManager::new();
-                let mut edge_engine = EdgeEngine::new(dm.clone());
+                let mut edge_engine = EdgeEngine::new(dm.divide());
                 // config.ip, config.port, config.name
                 let name = "test";
                 let ip = "0.0.0.0";
