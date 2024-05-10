@@ -30,7 +30,7 @@ impl WebServer {
         ]
         .join("\n");
         let rs = edge_engine
-            .execute(&ScriptTree {
+            .execute1(&ScriptTree {
                 script,
                 name: format!("info"),
                 next_v: vec![],

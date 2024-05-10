@@ -104,7 +104,7 @@ fn main() -> io::Result<()> {
                 .reduce(|acc, line| format!("{acc}{line}"))
                 .unwrap_or(String::new());
             edge_engine
-                .execute(&ScriptTree {
+                .execute1(&ScriptTree {
                     script: format!("{base_script}\n{option_script}\n{option_script1}"),
                     name: format!(""),
                     next_v: vec![],

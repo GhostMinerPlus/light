@@ -28,7 +28,7 @@ impl HttpConnector {
         let mut edge_engine = EdgeEngine::new(self.dm.divide());
 
         let rs = edge_engine
-            .execute(&ScriptTree {
+            .execute1(&ScriptTree {
                 script: [
                     "$->$output = = root->name _",
                     "$->$output += = root->port _",
@@ -47,7 +47,7 @@ impl HttpConnector {
         let path = rs["info"][2].as_str().unwrap();
 
         let rs = edge_engine
-            .execute(&ScriptTree {
+            .execute1(&ScriptTree {
                 script: ["$->$output = = root->moon_server _", "moon_server"].join("\n"),
                 name: format!("info"),
                 next_v: vec![],
@@ -128,7 +128,7 @@ mod tests {
                 ]
                 .join("\n");
                 edge_engine
-                    .execute(&ScriptTree {
+                    .execute1(&ScriptTree {
                         script,
                         name: format!("info"),
                         next_v: vec![],
