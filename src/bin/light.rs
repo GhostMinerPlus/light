@@ -1,12 +1,12 @@
 //! Start server
 
-use std::{
-    collections::BTreeMap,
-    io,
-};
+use std::{collections::BTreeMap, io};
 
 use earth::AsConfig;
-use edge_lib::{data::{AsDataManager, DataManager}, AsEdgeEngine, EdgeEngine};
+use edge_lib::{
+    data::{AsDataManager, DataManager},
+    AsEdgeEngine, EdgeEngine, ScriptTree,
+};
 use light::{connector, server};
 
 // Public
@@ -82,11 +82,11 @@ fn main() -> io::Result<()> {
                 format!("root->path = = {} _", config.path),
                 format!("root->src = = {} _", config.src),
             ]
-            .join("\\n");
+            .join("\n");
             let option_script = config
                 .moon_servers
                 .into_iter()
-                .map(|moon_server| format!("root->moon_server += = {moon_server} _\\n"))
+                .map(|moon_server| format!("root->moon_server += = {moon_server} _\n"))
                 .reduce(|acc, line| format!("{acc}{line}"))
                 .unwrap_or(String::new());
             let option_script1 = config
@@ -97,19 +97,18 @@ fn main() -> io::Result<()> {
                         "$->$proxy = = ? _",
                         &format!("$->$proxy->name = = {name} _"),
                         &format!("$->$proxy->uri = = {uri} _"),
-                        "root->proxy += = $->$proxy _"
+                        "root->proxy += = $->$proxy _",
                     ]
-                    .join("\\n")
+                    .join("\n")
                 })
                 .reduce(|acc, line| format!("{acc}{line}"))
                 .unwrap_or(String::new());
             edge_engine
-                .execute(
-                    &json::parse(&format!(
-                        "{{\"{base_script}\\n{option_script}\\n{option_script1}\": null}}"
-                    ))
-                    .unwrap(),
-                )
+                .execute(&ScriptTree {
+                    script: format!("{base_script}\n{option_script}\n{option_script1}"),
+                    name: format!(""),
+                    next_v: vec![],
+                })
                 .await?;
             edge_engine.commit().await?;
 

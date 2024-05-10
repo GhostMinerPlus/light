@@ -1,5 +1,7 @@
 use std::io;
 
+use edge_lib::ScriptTree;
+
 pub mod native {
     use pnet::datalink;
     use std::io;
@@ -24,11 +26,11 @@ pub mod native {
     }
 }
 
-pub async fn http_execute(uri: &str, script: String) -> io::Result<String> {
+pub async fn http_execute(uri: &str, script_tree: &ScriptTree) -> io::Result<String> {
     let res = reqwest::Client::new()
         .post(uri)
         .header("Content-Type", "application/json")
-        .body(script)
+        .body(serde_json::to_string(script_tree).unwrap())
         .send()
         .await
         .map_err(|e| {

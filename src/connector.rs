@@ -1,9 +1,6 @@
-use std::{
-    io,
-    time::Duration,
-};
+use std::{io, time::Duration};
 
-use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine, ScriptTree};
 use tokio::time;
 
 use crate::util;
@@ -30,15 +27,17 @@ impl HttpConnector {
     async fn execute(&self) -> io::Result<()> {
         let mut edge_engine = EdgeEngine::new(self.dm.divide());
 
-        let script = [
-            "$->$output = = root->name _",
-            "$->$output += = root->port _",
-            "$->$output += = root->path _",
-            "info",
-        ]
-        .join("\\n");
         let rs = edge_engine
-            .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+            .execute(&ScriptTree {
+                script: [
+                    "$->$output = = root->name _",
+                    "$->$output += = root->port _",
+                    "$->$output += = root->path _",
+                ]
+                .join("\n"),
+                name: format!("info"),
+                next_v: vec![],
+            })
             .await
             .map_err(|e| io::Error::other(format!("when execute:\n{e}")))?;
         log::debug!("{rs}");
@@ -47,9 +46,12 @@ impl HttpConnector {
         let port = rs["info"][1].as_str().unwrap();
         let path = rs["info"][2].as_str().unwrap();
 
-        let script = ["$->$output = = root->moon_server _", "moon_server"].join("\\n");
         let rs = edge_engine
-            .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+            .execute(&ScriptTree {
+                script: ["$->$output = = root->moon_server _", "moon_server"].join("\n"),
+                name: format!("info"),
+                next_v: vec![],
+            })
             .await
             .map_err(|e| io::Error::other(format!("when execute:\n{e}")))?;
         log::debug!("{rs}");
@@ -63,9 +65,8 @@ impl HttpConnector {
             &format!("$->$web_server->port = = {port} _"),
             &format!("$->$web_server->path = = {path} _"),
             "root->web_server += left $->$web_server $->$server_exists",
-            "info",
         ]
-        .join("\\n");
+        .join("\n");
         for moon_server in moon_server_v.members() {
             let uri = match moon_server.as_str() {
                 Some(uri) => uri,
@@ -75,7 +76,16 @@ impl HttpConnector {
                 }
             };
             log::info!("reporting to {uri}");
-            if let Err(e) = util::http_execute(&uri, format!("{{\"{script}\": null}}")).await {
+            if let Err(e) = util::http_execute(
+                &uri,
+                &ScriptTree {
+                    script: script.clone(),
+                    name: format!("info"),
+                    next_v: vec![],
+                },
+            )
+            .await
+            {
                 log::warn!("when execute:\n{e}");
             } else {
                 log::info!("reported to {uri}");
@@ -87,7 +97,10 @@ impl HttpConnector {
 
 #[cfg(test)]
 mod tests {
-    use edge_lib::{data::{AsDataManager, DataManager}, AsEdgeEngine, EdgeEngine};
+    use edge_lib::{
+        data::{AsDataManager, DataManager},
+        AsEdgeEngine, EdgeEngine, ScriptTree,
+    };
 
     #[test]
     fn test() {
@@ -111,12 +124,15 @@ mod tests {
                     &format!("$->$web_server->ip = = {ip} _"),
                     &format!("$->$web_server->port = = {port} _"),
                     &format!("$->$web_server->path = = {path} _"),
-                    "root->web_server += left $->$web_server $->$server_exists",
-                    "info",
+                    "root->web_server += left $->$web_server $->$server_exists"
                 ]
-                .join("\\n");
+                .join("\n");
                 edge_engine
-                    .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+                    .execute(&ScriptTree {
+                        script,
+                        name: format!("info"),
+                        next_v: vec![],
+                    })
                     .await
                     .unwrap();
                 edge_engine.commit().await.unwrap();

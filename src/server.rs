@@ -5,7 +5,7 @@ mod service;
 use std::{io, sync::Arc};
 
 use actix_web::{web, HttpServer};
-use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine, ScriptTree};
 
 // Public
 pub struct WebServer {
@@ -27,11 +27,14 @@ impl WebServer {
             "$->$output += = root->port _",
             "$->$output += = root->path _",
             "$->$output += = root->src _",
-            "info",
         ]
-        .join("\\n");
+        .join("\n");
         let rs = edge_engine
-            .execute(&json::parse(&format!("{{\"{script}\": null}}")).unwrap())
+            .execute(&ScriptTree {
+                script,
+                name: format!("info"),
+                next_v: vec![],
+            })
             .await?;
         log::debug!("{rs}");
         let name = rs["info"][0].as_str().unwrap();
