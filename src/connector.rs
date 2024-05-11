@@ -66,7 +66,7 @@ impl HttpConnector {
             &format!("$->$web_server->path = = {path} _"),
             "root->web_server += left $->$web_server $->$server_exists",
         ]
-        .join("\n");
+        .join("\\n");
         for moon_server in moon_server_v.members() {
             let uri = match moon_server.as_str() {
                 Some(uri) => uri,
@@ -80,7 +80,7 @@ impl HttpConnector {
                 if let Err(e) = util::http_execute1(
                     &uri,
                     &ScriptTree {
-                        script: script.clone(),
+                        script: script.replace("\\n", "\n"),
                         name: format!("info"),
                         next_v: vec![],
                     },
