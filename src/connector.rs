@@ -48,8 +48,8 @@ impl HttpConnector {
 
         let rs = edge_engine
             .execute1(&ScriptTree {
-                script: ["$->$output = = root->moon_server _", "moon_server"].join("\n"),
-                name: format!("info"),
+                script: ["$->$output = = root->moon_server _"].join("\n"),
+                name: format!("moon_server"),
                 next_v: vec![],
             })
             .await
