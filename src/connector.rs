@@ -76,16 +76,7 @@ impl HttpConnector {
                 }
             };
             log::info!("reporting to {uri}");
-            if let Err(e) = util::http_execute(
-                &uri,
-                &ScriptTree {
-                    script: script.clone(),
-                    name: format!("info"),
-                    next_v: vec![],
-                },
-            )
-            .await
-            {
+            if let Err(e) = util::http_execute(&uri, format!("{{\"{script}\": null}}")).await {
                 log::warn!("when execute:\n{e}");
             } else {
                 log::info!("reported to {uri}");
@@ -124,7 +115,7 @@ mod tests {
                     &format!("$->$web_server->ip = = {ip} _"),
                     &format!("$->$web_server->port = = {port} _"),
                     &format!("$->$web_server->path = = {path} _"),
-                    "root->web_server += left $->$web_server $->$server_exists"
+                    "root->web_server += left $->$web_server $->$server_exists",
                 ]
                 .join("\n");
                 edge_engine
