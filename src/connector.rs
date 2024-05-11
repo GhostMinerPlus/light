@@ -76,10 +76,19 @@ impl HttpConnector {
                 }
             };
             log::info!("reporting to {uri}");
-            if let Err(e) = util::http_execute(&uri, format!("{{\"{script}\": null}}")).await {
-                log::warn!("when execute:\n{e}");
-            } else {
-                log::info!("reported to {uri}");
+            if let Err(_) = util::http_execute(&uri, format!("{{\"{script}\": null}}")).await {
+                if let Err(e) = util::http_execute1(
+                    &uri,
+                    &ScriptTree {
+                        script: script.clone(),
+                        name: format!("info"),
+                        next_v: vec![],
+                    },
+                )
+                .await
+                {
+                    log::warn!("when execute:\n{e}");
+                }
             }
         }
         Ok(())
