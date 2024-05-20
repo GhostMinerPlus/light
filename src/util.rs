@@ -27,6 +27,7 @@ pub mod native {
 }
 
 pub async fn http_execute(uri: &str, script: String) -> io::Result<String> {
+    log::debug!("http_execute: {uri} => {script}");
     let res = reqwest::Client::new()
         .post(uri)
         .header("Content-Type", "application/json")
