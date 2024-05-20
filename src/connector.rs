@@ -1,6 +1,6 @@
 use std::{io, time::Duration};
 
-use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine, ScriptTree};
+use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine, Path, ScriptTree};
 use tokio::time;
 
 use crate::util;
@@ -42,7 +42,15 @@ impl HttpConnector {
             .map_err(|e| io::Error::other(format!("when execute:\n{e}")))?;
         log::debug!("{rs}");
         let name = rs["info"][0].as_str().unwrap();
-        let ip = util::native::get_global_ipv6()?;
+        let ip = {
+            let mut dm = self.dm.divide();
+            let domain_v = dm.get(&Path::from_str("root->domain")).await?;
+            if !domain_v.is_empty() && !domain_v[0].is_empty() {
+                domain_v[0].clone()
+            } else {
+                util::native::get_global_ipv6()?
+            }
+        };
         let port = rs["info"][1].as_str().unwrap();
         let path = rs["info"][2].as_str().unwrap();
 
