@@ -100,6 +100,7 @@ async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<
             script: [
                 format!("$->$output = = $->$input->ip _"),
                 format!("$->$output += = $->$input->port _"),
+                format!("$->$output += = $->$input->path _"),
             ]
             .join("\n"),
             name: format!("info"),
@@ -113,17 +114,18 @@ async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<
         let info = &rs["web_server"]["info"];
         let ip = info[0].as_str().unwrap();
         let port = info[1].as_str().unwrap();
+        let path = info[2].as_str().unwrap();
         let uri = if ip.contains(':') {
             if port == "80" {
-                format!("http://[{ip}]/{name}/")
+                format!("http://[{ip}]{path}")
             } else {
-                format!("http://[{ip}]:{port}/{name}/")
+                format!("http://[{ip}]:{port}{path}")
             }
         } else {
             if port == "80" {
-                format!("http://{ip}/{name}/")
+                format!("http://{ip}{path}")
             } else {
-                format!("http://{ip}:{port}/{name}/")
+                format!("http://{ip}:{port}{path}")
             }
         };
         return Ok(uri);
