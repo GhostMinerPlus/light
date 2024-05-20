@@ -92,6 +92,7 @@ async fn proxy_fn(
 }
 
 async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<String> {
+    log::debug!("get_uri_by_name: {name}");
     let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
     let script_tree = ScriptTree {
         script: [format!("$->$output = inner root->web_server {name}<-name")].join("\n"),
