@@ -29,6 +29,7 @@ struct Config {
     /// Default: 8
     thread_num: u8,
     moon_servers: Vec<String>,
+    domain: String,
 }
 
 impl Default for Config {
@@ -43,6 +44,7 @@ impl Default for Config {
             src: "dist".to_string(),
             thread_num: 8,
             moon_servers: Vec::new(),
+            domain: format!(""),
         }
     }
 }
@@ -81,6 +83,7 @@ fn main() -> io::Result<()> {
                 format!("root->port = = {} _", config.port),
                 format!("root->path = = {} _", config.path),
                 format!("root->src = = {} _", config.src),
+                format!("root->domain = = {} _", config.domain),
             ]
             .join("\n");
             let option_script = config
