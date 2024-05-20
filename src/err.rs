@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, io};
 
 #[derive(Debug)]
 pub enum Error {
@@ -15,4 +15,8 @@ impl Display for Error {
             Error::NotLogin => write!(f, "not login"),
         }
     }
+}
+
+pub fn map_io_err(e: io::Error) -> Error {
+    Error::Other(e.to_string())
 }

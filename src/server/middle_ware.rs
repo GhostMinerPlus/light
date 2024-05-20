@@ -93,7 +93,10 @@ async fn proxy_fn(
 
 async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<String> {
     log::debug!("get_uri_by_name: {name}");
-    let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
+    let moon_server_v = dm
+        .get(&Path::from_str("root->moon_server"))
+        .await
+        .map_err(err::map_io_err)?;
     let script_tree = ScriptTree {
         script: [format!("$->$output = inner root->web_server {name}<-name")].join("\n"),
         name: format!("web_server"),
@@ -110,13 +113,21 @@ async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<
     };
     let script_str = EdgeEngine::tree_2_entry(&script_tree).to_string();
     for moon_server in &moon_server_v {
-        let rs = util::http_execute(moon_server, script_str).await.unwrap();
-        let rs = json::parse(&rs).unwrap();
+        let rs = util::http_execute(moon_server, script_str)
+            .await
+            .map_err(err::map_io_err)?;
+        let rs = json::parse(&rs).map_err(|e| err::Error::Other(e.to_string()))?;
         log::debug!("web_servers: {rs}");
         let info = &rs["web_server"]["info"][0];
-        let ip = info[0].as_str().unwrap();
-        let port = info[1].as_str().unwrap();
-        let path = info[2].as_str().unwrap();
+        let ip = info[0]
+            .as_str()
+            .ok_or(err::Error::Other(format!("no ip")))?;
+        let port = info[1]
+            .as_str()
+            .ok_or(err::Error::Other(format!("no port")))?;
+        let path = info[2]
+            .as_str()
+            .ok_or(err::Error::Other(format!("no path")))?;
         let uri = if ip.contains(':') {
             if port == "80" {
                 format!("http://[{ip}]{path}")
