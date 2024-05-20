@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, io};
 
 use earth::AsConfig;
 use edge_lib::{
-    data::{AsDataManager, DataManager},
+    data::{AsDataManager, MemDataManager},
     AsEdgeEngine, EdgeEngine, ScriptTree,
 };
 use light::{connector, server};
@@ -72,7 +72,7 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let dm = DataManager::new();
+            let dm = MemDataManager::new();
             let mut edge_engine = EdgeEngine::new(dm.divide());
             // config.ip, config.port, config.name
             let base_script = [
@@ -92,11 +92,11 @@ fn main() -> io::Result<()> {
             let option_script1 = config
                 .proxy
                 .into_iter()
-                .map(|(name, uri)| {
+                .map(|(path, name)| {
                     [
                         "$->$proxy = = ? _",
+                        &format!("$->$proxy->path = = {path} _"),
                         &format!("$->$proxy->name = = {name} _"),
-                        &format!("$->$proxy->uri = = {uri} _"),
                         "root->proxy += = $->$proxy _",
                     ]
                     .join("\n")

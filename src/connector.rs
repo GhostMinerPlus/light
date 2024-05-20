@@ -101,8 +101,8 @@ impl HttpConnector {
 #[cfg(test)]
 mod tests {
     use edge_lib::{
-        data::{AsDataManager, DataManager},
-        AsEdgeEngine, EdgeEngine, ScriptTree,
+        data::{AsDataManager, MemDataManager},
+        AsEdgeEngine, EdgeEngine, Path, ScriptTree,
     };
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
             .build()
             .unwrap()
             .block_on(async {
-                let mut dm = DataManager::new();
+                let mut dm = MemDataManager::new();
                 let mut edge_engine = EdgeEngine::new(dm.divide());
                 // config.ip, config.port, config.name
                 let name = "test";
@@ -139,7 +139,7 @@ mod tests {
                     .await
                     .unwrap();
                 edge_engine.commit().await.unwrap();
-                let rs = dm.get_target_v("root", "web_server").await.unwrap();
+                let rs = dm.get(&Path::from_str("root->web_server")).await.unwrap();
                 assert!(!rs.is_empty());
             })
     }

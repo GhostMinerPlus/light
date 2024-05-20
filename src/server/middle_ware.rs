@@ -5,13 +5,15 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
-use edge_lib::data::AsDataManager;
+use edge_lib::{data::AsDataManager, EdgeEngine, Path, ScriptTree};
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::StatusCode;
 use std::{
     future::{self, Ready},
     sync::Arc,
 };
+
+use crate::{err, util};
 
 async fn proxy_fn(
     req: HttpRequest,
@@ -89,6 +91,46 @@ async fn proxy_fn(
     }
 }
 
+async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<String> {
+    let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
+    let script_tree = ScriptTree {
+        script: [format!("$->$output = inner root->web_server {name}<-name")].join("\n"),
+        name: format!("web_server"),
+        next_v: vec![ScriptTree {
+            script: [
+                format!("$->$output = = $->$input->ip _"),
+                format!("$->$output += = $->$input->port _"),
+            ]
+            .join("\n"),
+            name: format!("info"),
+            next_v: vec![],
+        }],
+    };
+    let script_str = EdgeEngine::tree_2_entry(&script_tree).to_string();
+    for moon_server in &moon_server_v {
+        let rs = util::http_execute(moon_server, script_str).await.unwrap();
+        let rs = json::parse(&rs).unwrap();
+        let info = &rs["web_server"]["info"];
+        let ip = info[0].as_str().unwrap();
+        let port = info[1].as_str().unwrap();
+        let uri = if ip.contains(':') {
+            if port == "80" {
+                format!("http://[{ip}]/{name}/")
+            } else {
+                format!("http://[{ip}]:{port}/{name}/")
+            }
+        } else {
+            if port == "80" {
+                format!("http://{ip}/{name}/")
+            } else {
+                format!("http://{ip}:{port}/{name}/")
+            }
+        };
+        return Ok(uri);
+    }
+    Err(err::Error::Other(format!("no uri")))
+}
+
 // Public
 pub struct ProxyMiddleware<S> {
     service: Arc<S>,
@@ -115,13 +157,20 @@ where
                 .unwrap()
                 .as_ref()
                 .divide();
-            let proxy_v = dm.get_target_v("root", "proxy").await.unwrap();
+            let proxy_v = dm.get(&Path::from_str("root->proxy")).await.unwrap();
             for proxy in &proxy_v {
-                let fake_path = dm.get_target(proxy, "name").await.unwrap();
-                let uri = dm.get_target(proxy, "uri").await.unwrap();
-                if path.starts_with(&fake_path) {
-                    let tail_path = &path[fake_path.len()..];
+                let fake_path_v = dm
+                    .get(&Path::from_str(&format!("{proxy}->path")))
+                    .await
+                    .unwrap();
+                if path.starts_with(&fake_path_v[0]) {
+                    let tail_path = &path[fake_path_v[0].len()..];
                     let (req, payload) = req.into_parts();
+                    let name_v = dm
+                        .get(&Path::from_str(&format!("{proxy}->name")))
+                        .await
+                        .unwrap();
+                    let uri = get_uri_by_name(&mut *dm, &name_v[0]).await.unwrap();
                     return proxy_fn(req, payload, format!("{uri}{tail_path}")).await;
                 }
             }
