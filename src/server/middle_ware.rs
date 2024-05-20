@@ -113,7 +113,7 @@ async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<
         let rs = util::http_execute(moon_server, script_str).await.unwrap();
         let rs = json::parse(&rs).unwrap();
         log::debug!("web_servers: {rs}");
-        let info = &rs["web_server"]["info"];
+        let info = &rs["web_server"]["info"][0];
         let ip = info[0].as_str().unwrap();
         let port = info[1].as_str().unwrap();
         let path = info[2].as_str().unwrap();
