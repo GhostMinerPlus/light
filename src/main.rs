@@ -89,8 +89,8 @@ fn main() -> io::Result<()> {
             let option_script = config
                 .moon_servers
                 .into_iter()
-                .map(|moon_server| format!("root->moon_server += = {moon_server} _\n"))
-                .reduce(|acc, line| format!("{acc}{line}"))
+                .map(|moon_server| format!("root->moon_server += = {moon_server} _"))
+                .reduce(|acc, line| format!("{acc}\n{line}"))
                 .unwrap_or(String::new());
             let option_script1 = config
                 .proxy
@@ -104,7 +104,7 @@ fn main() -> io::Result<()> {
                     ]
                     .join("\n")
                 })
-                .reduce(|acc, line| format!("{acc}{line}"))
+                .reduce(|acc, block| format!("{acc}\n{block}"))
                 .unwrap_or(String::new());
             edge_engine
                 .execute1(&ScriptTree {
