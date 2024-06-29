@@ -3,8 +3,11 @@
 use std::{collections::BTreeMap, io, sync::Arc};
 
 use earth::AsConfig;
-use edge_lib::{data::MemDataManager, EdgeEngine, ScriptTree};
-use light::{connector, server, util::Auth};
+use edge_lib::{
+    data::{Auth, MemDataManager},
+    EdgeEngine, ScriptTree,
+};
+use light::{connector, server, util::User};
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
@@ -73,13 +76,14 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let dm = Arc::new(MemDataManager::new());
+            let dm = Arc::new(MemDataManager::new(Auth::printer("root")));
             let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
             let token = light::util::gen_token(
                 &config.key,
-                &Auth {
+                &User {
                     email: config.name.clone(),
+                    paper: String::new(),
                 },
                 None,
             )

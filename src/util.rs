@@ -1,6 +1,7 @@
 use std::io;
 
 use edge_lib::ScriptTree;
+use serde::{Deserialize, Serialize};
 
 pub mod native {
     use pnet::datalink;
@@ -61,13 +62,14 @@ pub async fn http_execute1(uri: &str, script_tree: &ScriptTree) -> io::Result<St
     })
 }
 
-#[derive(Clone)]
-pub struct Auth {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct User {
     pub email: String,
+    pub paper: String,
 }
 
-pub fn gen_token(key: &str, auth: &Auth, life_op: Option<u64>) -> io::Result<String> {
-    main::gen_token(key, auth, life_op)
+pub fn gen_token(key: &str, user: &User, life_op: Option<u64>) -> io::Result<String> {
+    main::gen_token(key, user, life_op)
 }
 
 mod main {
@@ -77,9 +79,9 @@ mod main {
     use jwt::{AlgorithmType, Header, SignWithKey, Token};
     use sha2::Sha512;
 
-    use super::Auth;
+    use super::User;
 
-    pub fn gen_token(key: &str, auth: &Auth, life_op: Option<u64>) -> io::Result<String> {
+    pub fn gen_token(key: &str, user: &User, life_op: Option<u64>) -> io::Result<String> {
         let key: Hmac<Sha512> =
             Hmac::new_from_slice(&hex2byte_v(key)).map_err(|e| io::Error::other(e))?;
         let header = Header {
@@ -95,14 +97,15 @@ mod main {
                 + life;
             claims.insert("exp", format!("{exp}"));
         }
-        claims.insert("email", auth.email.clone());
+        claims.insert("email", user.email.clone());
+        claims.insert("paper", user.paper.clone());
         Ok(Token::new(header, claims)
             .sign_with_key(&key)
             .map_err(|e| io::Error::other(e))?
             .as_str()
             .to_string())
     }
-
+    
     fn hex2byte_v(s: &str) -> Vec<u8> {
         let mut byte_v = Vec::with_capacity(s.len() / 2 + 1);
         let mut is_h = true;

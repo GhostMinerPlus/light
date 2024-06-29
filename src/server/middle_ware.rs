@@ -29,7 +29,7 @@ async fn proxy_fn(
             if name == "Cookie" {
                 headers.insert(
                     name.clone(),
-                    HeaderValue::from_str(&format!("{};app={token}", value.to_str().unwrap()))
+                    HeaderValue::from_str(&format!("{};printer={token}", value.to_str().unwrap()))
                         .unwrap(),
                 );
             } else {
