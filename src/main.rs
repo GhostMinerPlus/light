@@ -7,7 +7,7 @@ use edge_lib::{
     data::{Auth, MemDataManager},
     EdgeEngine, ScriptTree,
 };
-use light::{connector, server, util::User};
+use light::{connector, server};
 
 // Public
 #[derive(serde::Deserialize, serde::Serialize, AsConfig, Clone, Debug)]
@@ -81,10 +81,7 @@ fn main() -> io::Result<()> {
             // config.ip, config.port, config.name
             let token = light::util::gen_token(
                 &config.key,
-                &User {
-                    email: config.name.clone(),
-                    paper: String::new(),
-                },
+                config.name.clone(),
                 None,
             )
             .unwrap();
