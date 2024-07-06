@@ -157,6 +157,8 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
     Err(err::Error::Other(format!("no uri")))
 }
 
+const MOON_SERVICE_PATH: &str = "/service/moon_server";
+
 // Public
 pub struct ProxyMiddleware<S> {
     service: Arc<S>,
@@ -183,12 +185,12 @@ where
                 .unwrap()
                 .as_ref()
                 .clone();
-            if path.starts_with("service/moon_server") {
+            if path.starts_with(MOON_SERVICE_PATH) {
                 let (req, payload) = req.into_parts();
                 let token_v = dm.get(&Path::from_str("root->token")).await.unwrap();
                 let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
                 let uri = &moon_server_v[0];
-                let tail_path = &path["service/moon_server".len()..];
+                let tail_path = &path[MOON_SERVICE_PATH.len()..];
                 return proxy_fn(
                     req,
                     token_v.first().unwrap(),
