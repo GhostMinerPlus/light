@@ -109,6 +109,9 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
     if moon_server_v.is_empty() {
         return Err(err::Error::Other(format!("no uri")));
     }
+    if name == "moon_server" {
+        return Ok(moon_server_v[0].clone());
+    }
     let script_tree = ScriptTree {
         script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
         name: format!("web_server"),

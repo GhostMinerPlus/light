@@ -97,41 +97,39 @@ fn main() -> io::Result<()> {
                     next_v: vec![],
                 })
                 .await?;
-            if !config.moon_servers.is_empty() {
-                let option_script = config
-                    .moon_servers
-                    .iter()
-                    .map(|moon_server| {
-                        format!("root->moon_server append root->moon_server {moon_server}")
-                    })
-                    .reduce(|acc, line| format!("{acc}\n{line}"))
-                    .unwrap();
+            let option_script = config
+                .moon_servers
+                .iter()
+                .map(|moon_server| {
+                    format!("root->moon_server append root->moon_server {moon_server}")
+                })
+                .reduce(|acc, line| format!("{acc}\n{line}"));
+            if let Some(script) = option_script {
                 edge_engine
                     .execute1(&ScriptTree {
-                        script: option_script,
+                        script,
                         name: format!("result"),
                         next_v: vec![],
                     })
                     .await?;
             }
-            if !config.proxy.is_empty() {
-                let option_script1 = config
-                    .proxy
-                    .into_iter()
-                    .map(|(path, name)| {
-                        [
-                            "$->$proxy = ? _",
-                            &format!("$->$proxy->path = {path} _"),
-                            &format!("$->$proxy->name = {name} _"),
-                            "root->proxy append root->proxy $->$proxy",
-                        ]
-                        .join("\n")
-                    })
-                    .reduce(|acc, block| format!("{acc}\n{block}"))
-                    .unwrap();
+            let option_script1 = config
+                .proxy
+                .into_iter()
+                .map(|(path, name)| {
+                    [
+                        "$->$proxy = ? _",
+                        &format!("$->$proxy->path = {path} _"),
+                        &format!("$->$proxy->name = {name} _"),
+                        "root->proxy append root->proxy $->$proxy",
+                    ]
+                    .join("\n")
+                })
+                .reduce(|acc, block| format!("{acc}\n{block}"));
+            if let Some(script) = option_script1 {
                 edge_engine
                     .execute1(&ScriptTree {
-                        script: option_script1,
+                        script,
                         name: format!("result"),
                         next_v: vec![],
                     })
