@@ -5,9 +5,9 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
-use edge_lib::{data::AsDataManager, EdgeEngine, Path, ScriptTree};
+use edge_lib::{data::AsDataManager, util::Path, ScriptTree};
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
-use reqwest::StatusCode;
+use reqwest::{header::HeaderValue, StatusCode};
 use std::{
     future::{self, Ready},
     sync::Arc,
@@ -17,6 +17,7 @@ use crate::{err, util};
 
 async fn proxy_fn(
     req: HttpRequest,
+    token: &str,
     mut payload: Payload,
     uri: String,
 ) -> Result<ServiceResponse<BoxBody>, Error> {
@@ -25,7 +26,15 @@ async fn proxy_fn(
     let headers = {
         let mut headers = reqwest::header::HeaderMap::new();
         for (name, value) in req.headers() {
-            headers.insert(name.clone(), value.clone());
+            if name == "Cookie" {
+                headers.insert(
+                    name.clone(),
+                    HeaderValue::from_str(&format!("{};printer={token}", value.to_str().unwrap()))
+                        .unwrap(),
+                );
+            } else {
+                headers.insert(name.clone(), value.clone());
+            }
         }
         headers
     };
@@ -91,29 +100,28 @@ async fn proxy_fn(
     }
 }
 
-async fn get_uri_by_name(dm: &mut dyn AsDataManager, name: &str) -> err::Result<String> {
+async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<String> {
     log::debug!("get_uri_by_name: {name}");
     let moon_server_v = dm
         .get(&Path::from_str("root->moon_server"))
         .await
         .map_err(err::map_io_err)?;
     let script_tree = ScriptTree {
-        script: [format!("$->$output = inner root->web_server {name}<-name")].join("\n"),
+        script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
         name: format!("web_server"),
         next_v: vec![ScriptTree {
             script: [
-                format!("$->$output = = $->$input->ip _"),
-                format!("$->$output += = $->$input->port _"),
-                format!("$->$output += = $->$input->path _"),
+                format!("$->$output = $->$input->ip _"),
+                format!("$->$output append $->$output $->$input->port"),
+                format!("$->$output append $->$output $->$input->path"),
             ]
             .join("\n"),
             name: format!("info"),
             next_v: vec![],
         }],
     };
-    let script_str = EdgeEngine::tree_2_entry(&script_tree).to_string();
     for moon_server in &moon_server_v {
-        let rs = util::http_execute(moon_server, script_str)
+        let rs = util::http_execute1(moon_server, &script_tree)
             .await
             .map_err(err::map_io_err)?;
         let rs = json::parse(&rs).map_err(|e| err::Error::Other(e.to_string()))?;
@@ -167,11 +175,11 @@ where
         Box::pin(async move {
             let path = req.path().to_string();
             log::info!("request: {path}");
-            let mut dm = req
-                .app_data::<web::Data<Box<dyn AsDataManager>>>()
+            let dm = req
+                .app_data::<web::Data<Arc<dyn AsDataManager>>>()
                 .unwrap()
                 .as_ref()
-                .divide();
+                .clone();
             let proxy_v = dm.get(&Path::from_str("root->proxy")).await.unwrap();
             for proxy in &proxy_v {
                 let fake_path_v = dm
@@ -185,8 +193,15 @@ where
                         .get(&Path::from_str(&format!("{proxy}->name")))
                         .await
                         .unwrap();
-                    let uri = get_uri_by_name(&mut *dm, &name_v[0]).await.unwrap();
-                    return proxy_fn(req, payload, format!("{uri}{tail_path}")).await;
+                    let uri = get_uri_by_name(&*dm, &name_v[0]).await.unwrap();
+                    let token_v = dm.get(&Path::from_str("root->token")).await.unwrap();
+                    return proxy_fn(
+                        req,
+                        token_v.first().unwrap(),
+                        payload,
+                        format!("{uri}{tail_path}"),
+                    )
+                    .await;
                 }
             }
             service.call(req).await

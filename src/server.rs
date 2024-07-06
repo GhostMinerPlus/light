@@ -5,21 +5,21 @@ mod service;
 use std::{io, sync::Arc};
 
 use actix_web::{web, HttpServer};
-use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine, ScriptTree};
+use edge_lib::{data::AsDataManager, EdgeEngine, ScriptTree};
 
 // Public
 pub struct WebServer {
-    dm: Box<dyn AsDataManager>,
+    dm: Arc<dyn AsDataManager>,
 }
 
 impl WebServer {
-    pub fn new(dm: Box<dyn AsDataManager>) -> Self {
+    pub fn new(dm: Arc<dyn AsDataManager>) -> Self {
         Self { dm }
     }
 
     /// Server run itself. This will block current thread.
     pub async fn run(self) -> io::Result<()> {
-        let mut edge_engine = EdgeEngine::new(self.dm.divide());
+        let mut edge_engine = EdgeEngine::new(self.dm.clone());
 
         let script = [
             "$->$output = = root->name _",
@@ -45,10 +45,9 @@ impl WebServer {
 
         let domain = format!("{ip}:{port}");
         log::info!("http service {name} uri: http://{domain}{path}");
-        let dm = Arc::new(self.dm);
         let server = HttpServer::new(move || {
             actix_web::App::new()
-                .app_data(web::Data::new(dm.divide()))
+                .app_data(web::Data::new(self.dm.clone()))
                 .wrap(middle_ware::Proxy::new())
                 .service(service::config(&path, &src))
         });

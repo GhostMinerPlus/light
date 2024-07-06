@@ -1,11 +1,11 @@
 //! Start server
 
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, io, sync::Arc};
 
 use earth::AsConfig;
 use edge_lib::{
-    data::{AsDataManager, MemDataManager},
-    AsEdgeEngine, EdgeEngine, ScriptTree,
+    data::{Auth, MemDataManager},
+    EdgeEngine, ScriptTree,
 };
 use light::{connector, server};
 
@@ -30,6 +30,7 @@ struct Config {
     thread_num: u8,
     moon_servers: Vec<String>,
     domain: String,
+    key: String,
 }
 
 impl Default for Config {
@@ -45,6 +46,7 @@ impl Default for Config {
             thread_num: 8,
             moon_servers: Vec::new(),
             domain: format!(""),
+            key: String::new(),
         }
     }
 }
@@ -74,37 +76,46 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let dm = MemDataManager::new();
-            let mut edge_engine = EdgeEngine::new(dm.divide());
+            let dm = Arc::new(MemDataManager::new(Auth::printer("root")));
+            let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
+            let token = light::util::gen_token(
+                &config.key,
+                config.name.clone(),
+                None,
+            )
+            .unwrap();
             let base_script = [
-                format!("root->name = = {} _", config.name),
-                format!("root->ip = = {} _", config.ip),
-                format!("root->port = = {} _", config.port),
-                format!("root->path = = {} _", config.path),
-                format!("root->src = = {} _", config.src),
-                format!("root->domain = = {} _", config.domain),
+                format!("root->name = {} _", config.name),
+                format!("root->ip = {} _", config.ip),
+                format!("root->port = {} _", config.port),
+                format!("root->path = {} _", config.path),
+                format!("root->src = {} _", config.src),
+                format!("root->domain = {} _", config.domain),
+                format!("root->token = {} _", token),
             ]
             .join("\n");
             let option_script = config
                 .moon_servers
                 .into_iter()
-                .map(|moon_server| format!("root->moon_server += = {moon_server} _\n"))
-                .reduce(|acc, line| format!("{acc}{line}"))
+                .map(|moon_server| {
+                    format!("root->moon_server append root->moon_server {moon_server}")
+                })
+                .reduce(|acc, line| format!("{acc}\n{line}"))
                 .unwrap_or(String::new());
             let option_script1 = config
                 .proxy
                 .into_iter()
                 .map(|(path, name)| {
                     [
-                        "$->$proxy = = ? _",
-                        &format!("$->$proxy->path = = {path} _"),
-                        &format!("$->$proxy->name = = {name} _"),
-                        "root->proxy += = $->$proxy _",
+                        "$->$proxy = ? _",
+                        &format!("$->$proxy->path = {path} _"),
+                        &format!("$->$proxy->name = {name} _"),
+                        "root->proxy append root->proxy $->$proxy",
                     ]
                     .join("\n")
                 })
-                .reduce(|acc, line| format!("{acc}{line}"))
+                .reduce(|acc, block| format!("{acc}\n{block}"))
                 .unwrap_or(String::new());
             edge_engine
                 .execute1(&ScriptTree {
@@ -115,7 +126,7 @@ fn main() -> io::Result<()> {
                 .await?;
             edge_engine.commit().await?;
 
-            tokio::spawn(connector::HttpConnector::new(dm.divide()).run());
-            server::WebServer::new(dm.divide()).run().await
+            tokio::spawn(connector::HttpConnector::new(dm.clone()).run());
+            server::WebServer::new(dm).run().await
         })
 }

@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use actix_files::{Files, NamedFile};
 use actix_web::{
     dev::{HttpServiceFactory, ServiceRequest, ServiceResponse},
     web, HttpResponse, Responder,
 };
-use edge_lib::{data::AsDataManager, AsEdgeEngine, EdgeEngine};
+use edge_lib::{data::AsDataManager, EdgeEngine};
 
 #[actix_web::post("/execute")]
-async fn execute(dm: web::Data<Box<dyn AsDataManager>>, script: String) -> impl Responder {
-    let mut edge_engine = EdgeEngine::new(dm.divide());
+async fn execute(dm: web::Data<Arc<dyn AsDataManager>>, script: String) -> impl Responder {
+    let mut edge_engine = EdgeEngine::new(dm.as_ref().clone());
     let rs = edge_engine
         .execute(&json::parse(&script).unwrap())
         .await
@@ -19,8 +21,8 @@ async fn execute(dm: web::Data<Box<dyn AsDataManager>>, script: String) -> impl 
 }
 
 #[actix_web::post("/execute1")]
-async fn execute1(dm: web::Data<Box<dyn AsDataManager>>, script: String) -> impl Responder {
-    let mut edge_engine = EdgeEngine::new(dm.divide());
+async fn execute1(dm: web::Data<Arc<dyn AsDataManager>>, script: String) -> impl Responder {
+    let mut edge_engine = EdgeEngine::new(dm.as_ref().clone());
     let rs = edge_engine
         .execute1(&serde_json::from_str(&script).unwrap())
         .await
