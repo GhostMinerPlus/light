@@ -106,6 +106,9 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
         .get(&Path::from_str("root->moon_server"))
         .await
         .map_err(err::map_io_err)?;
+    if moon_server_v.is_empty() {
+        return Err(err::Error::Other(format!("no uri")));
+    }
     let script_tree = ScriptTree {
         script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
         name: format!("web_server"),

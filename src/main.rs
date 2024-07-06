@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, io, sync::Arc};
 
 use earth::AsConfig;
 use edge_lib::{
-    data::{Auth, MemDataManager},
+    data::{Auth, MemDataManager, RecDataManager},
     EdgeEngine, ScriptTree,
 };
 use light::{connector, server};
@@ -76,54 +76,67 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let dm = Arc::new(MemDataManager::new(Auth::printer("root")));
+            let global = Arc::new(MemDataManager::new(Auth::printer(&config.name)));
+            let dm = Arc::new(RecDataManager::new(global));
             let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
-            let token = light::util::gen_token(
-                &config.key,
-                config.name.clone(),
-                None,
-            )
-            .unwrap();
-            let base_script = [
-                format!("root->name = {} _", config.name),
-                format!("root->ip = {} _", config.ip),
-                format!("root->port = {} _", config.port),
-                format!("root->path = {} _", config.path),
-                format!("root->src = {} _", config.src),
-                format!("root->domain = {} _", config.domain),
-                format!("root->token = {} _", token),
-            ]
-            .join("\n");
-            let option_script = config
-                .moon_servers
-                .into_iter()
-                .map(|moon_server| {
-                    format!("root->moon_server append root->moon_server {moon_server}")
-                })
-                .reduce(|acc, line| format!("{acc}\n{line}"))
-                .unwrap_or(String::new());
-            let option_script1 = config
-                .proxy
-                .into_iter()
-                .map(|(path, name)| {
-                    [
-                        "$->$proxy = ? _",
-                        &format!("$->$proxy->path = {path} _"),
-                        &format!("$->$proxy->name = {name} _"),
-                        "root->proxy append root->proxy $->$proxy",
-                    ]
-                    .join("\n")
-                })
-                .reduce(|acc, block| format!("{acc}\n{block}"))
-                .unwrap_or(String::new());
+            let token = light::util::gen_token(&config.key, config.name.clone(), None).unwrap();
             edge_engine
                 .execute1(&ScriptTree {
-                    script: format!("{base_script}\n{option_script}\n{option_script1}"),
-                    name: format!(""),
+                    script: [
+                        format!("root->name = {} _", config.name),
+                        format!("root->ip = {} _", config.ip),
+                        format!("root->port = {} _", config.port),
+                        format!("root->path = {} _", config.path),
+                        format!("root->src = {} _", config.src),
+                        format!("root->domain = {} _", config.domain),
+                        format!("root->token = {} _", token),
+                    ]
+                    .join("\n"),
+                    name: format!("result"),
                     next_v: vec![],
                 })
                 .await?;
+            if !config.moon_servers.is_empty() {
+                let option_script = config
+                    .moon_servers
+                    .iter()
+                    .map(|moon_server| {
+                        format!("root->moon_server append root->moon_server {moon_server}")
+                    })
+                    .reduce(|acc, line| format!("{acc}\n{line}"))
+                    .unwrap();
+                edge_engine
+                    .execute1(&ScriptTree {
+                        script: option_script,
+                        name: format!("result"),
+                        next_v: vec![],
+                    })
+                    .await?;
+            }
+            if !config.proxy.is_empty() {
+                let option_script1 = config
+                    .proxy
+                    .into_iter()
+                    .map(|(path, name)| {
+                        [
+                            "$->$proxy = ? _",
+                            &format!("$->$proxy->path = {path} _"),
+                            &format!("$->$proxy->name = {name} _"),
+                            "root->proxy append root->proxy $->$proxy",
+                        ]
+                        .join("\n")
+                    })
+                    .reduce(|acc, block| format!("{acc}\n{block}"))
+                    .unwrap();
+                edge_engine
+                    .execute1(&ScriptTree {
+                        script: option_script1,
+                        name: format!("result"),
+                        next_v: vec![],
+                    })
+                    .await?;
+            }
             edge_engine.commit().await?;
 
             tokio::spawn(connector::HttpConnector::new(dm.clone()).run());
