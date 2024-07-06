@@ -45,7 +45,7 @@ impl Default for Config {
             src: "dist".to_string(),
             thread_num: 8,
             moon_servers: Vec::new(),
-            domain: format!(""),
+            domain: format!("_"),
             key: String::new(),
         }
     }

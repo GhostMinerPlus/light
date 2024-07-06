@@ -1,6 +1,6 @@
 use std::{io, sync::Arc, time::Duration};
 
-use edge_lib::{data::AsDataManager, EdgeEngine, ScriptTree};
+use edge_lib::{data::AsDataManager, util::Path, EdgeEngine, ScriptTree};
 use tokio::time;
 
 use crate::util;
@@ -25,8 +25,17 @@ impl HttpConnector {
     }
 
     async fn execute(&self) -> io::Result<()> {
-        let ip = util::native::get_global_ipv6()
+        let domain_v = self
+            .dm
+            .get(&Path::from_str("root->domain"))
+            .await
             .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?;
+        let ip = if domain_v.is_empty() {
+            util::native::get_global_ipv6()
+                .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?
+        } else {
+            domain_v[0].clone()
+        };
 
         let mut edge_engine = EdgeEngine::new(self.dm.clone());
         let rs = edge_engine
