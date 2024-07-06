@@ -107,10 +107,7 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
         .await
         .map_err(err::map_io_err)?;
     if moon_server_v.is_empty() {
-        return Err(err::Error::Other(format!("no uri")));
-    }
-    if name == "moon_server" {
-        return Ok(moon_server_v[0].clone());
+        return Err(err::Error::Other(format!("no moon_server")));
     }
     let script_tree = ScriptTree {
         script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
@@ -186,6 +183,20 @@ where
                 .unwrap()
                 .as_ref()
                 .clone();
+            if path.starts_with("service/moon_server") {
+                let (req, payload) = req.into_parts();
+                let token_v = dm.get(&Path::from_str("root->token")).await.unwrap();
+                let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
+                let uri = &moon_server_v[0];
+                let tail_path = &path["service/moon_server".len()..];
+                return proxy_fn(
+                    req,
+                    token_v.first().unwrap(),
+                    payload,
+                    format!("{uri}{tail_path}"),
+                )
+                .await;
+            }
             let proxy_v = dm.get(&Path::from_str("root->proxy")).await.unwrap();
             for proxy in &proxy_v {
                 let fake_path_v = dm

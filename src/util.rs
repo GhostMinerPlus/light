@@ -28,7 +28,7 @@ pub mod native {
 
 pub async fn http_execute1(uri: &str, script_tree: &ScriptTree) -> io::Result<String> {
     let res = reqwest::Client::new()
-        .post(uri)
+        .post(format!("{uri}/execute1"))
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(script_tree).unwrap())
         .send()
