@@ -5,7 +5,7 @@ use actix_web::{
     http::header::HeaderMap,
     web, Error, HttpRequest, HttpResponse,
 };
-use edge_lib::{data::AsDataManager, util::Path, EdgeEngine, ScriptTree};
+use edge_lib::{data::AsDataManager, util::Path, ScriptTree};
 use futures_util::{future::LocalBoxFuture, TryStreamExt};
 use reqwest::{header::HeaderValue, StatusCode};
 use std::{
@@ -107,22 +107,21 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
         .await
         .map_err(err::map_io_err)?;
     let script_tree = ScriptTree {
-        script: [format!("$->$output = inner root->web_server {name}<-name")].join("\n"),
+        script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
         name: format!("web_server"),
         next_v: vec![ScriptTree {
             script: [
-                format!("$->$output = = $->$input->ip _"),
-                format!("$->$output += = $->$input->port _"),
-                format!("$->$output += = $->$input->path _"),
+                format!("$->$output = $->$input->ip _"),
+                format!("$->$output append $->$output $->$input->port"),
+                format!("$->$output append $->$output $->$input->path"),
             ]
             .join("\n"),
             name: format!("info"),
             next_v: vec![],
         }],
     };
-    let script_str = EdgeEngine::tree_2_entry(&script_tree).to_string();
     for moon_server in &moon_server_v {
-        let rs = util::http_execute(moon_server, script_str)
+        let rs = util::http_execute1(moon_server, &script_tree)
             .await
             .map_err(err::map_io_err)?;
         let rs = json::parse(&rs).map_err(|e| err::Error::Other(e.to_string()))?;

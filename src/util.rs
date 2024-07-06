@@ -26,24 +26,6 @@ pub mod native {
     }
 }
 
-pub async fn http_execute(uri: &str, script: String) -> io::Result<String> {
-    log::debug!("http_execute: {uri} => {script}");
-    let res = reqwest::Client::new()
-        .post(uri)
-        .header("Content-Type", "application/json")
-        .body(script)
-        .send()
-        .await
-        .map_err(|e| {
-            log::error!("{e}");
-            io::Error::other(e)
-        })?;
-    res.text().await.map_err(|e| {
-        log::error!("{e}");
-        io::Error::other(e)
-    })
-}
-
 pub async fn http_execute1(uri: &str, script_tree: &ScriptTree) -> io::Result<String> {
     let res = reqwest::Client::new()
         .post(uri)
