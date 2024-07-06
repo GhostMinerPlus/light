@@ -68,7 +68,7 @@ impl HttpConnector {
             "$->$web_server left $->$web_server $->$server_exists",
             "root->web_server append root->web_server $->$web_server",
         ]
-        .join("\\n");
+        .join("\n");
         for moon_server in moon_server_v.members() {
             let uri = match moon_server.as_str() {
                 Some(uri) => uri,
