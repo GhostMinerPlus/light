@@ -157,7 +157,7 @@ async fn get_uri_by_name(dm: &dyn AsDataManager, name: &str) -> err::Result<Stri
     Err(err::Error::Other(format!("no uri")))
 }
 
-const MOON_SERVICE_PATH: &str = "/service/moon_server";
+const MOON_SERVICE_PATH: &str = "/moon_server";
 
 // Public
 pub struct ProxyMiddleware<S> {
