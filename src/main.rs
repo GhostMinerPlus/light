@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, io, sync::Arc};
 
 use earth::AsConfig;
 use edge_lib::{
-    data::{Auth, MemDataManager, RecDataManager},
+    data::{Auth, CacheDataManager, MemDataManager, TempDataManager},
     EdgeEngine, ScriptTree,
 };
 use light::{connector, server};
@@ -76,8 +76,10 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let global = Arc::new(MemDataManager::new(Auth::printer(&config.name)));
-            let dm = Arc::new(RecDataManager::new(global));
+            let global = Arc::new(TempDataManager::new(Arc::new(MemDataManager::new(
+                Auth::printer(&config.name),
+            ))));
+            let dm = Arc::new(CacheDataManager::new(global));
             let mut edge_engine = EdgeEngine::new(dm.clone());
             // config.ip, config.port, config.name
             let token = light::util::gen_token(&config.key, config.name.clone(), None).unwrap();
