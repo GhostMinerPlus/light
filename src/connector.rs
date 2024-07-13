@@ -5,6 +5,8 @@ use tokio::time;
 
 use crate::util;
 
+const SLEEP_TIME: Duration = Duration::from_secs(10);
+
 pub struct HttpConnector {
     dm: Arc<dyn AsDataManager>,
 }
@@ -20,7 +22,7 @@ impl HttpConnector {
                 log::warn!("{e}\nwhen run");
             }
 
-            time::sleep(Duration::from_secs(10)).await;
+            time::sleep(SLEEP_TIME).await;
         }
     }
 
@@ -82,7 +84,7 @@ impl HttpConnector {
             let uri = match moon_server.as_str() {
                 Some(uri) => uri,
                 None => {
-                    log::error!("failed to parse uri for moon_server\nwhen execute");
+                    log::warn!("failed to parse uri for moon_server\nwhen execute");
                     continue;
                 }
             };
@@ -100,6 +102,25 @@ impl HttpConnector {
                 log::warn!("{e}\nwhen execute");
             } else {
                 log::info!("reported to {uri}");
+                if let Err(e) = edge_engine
+                    .execute1(&ScriptTree {
+                        script: [
+                            "root->web_server->name = _ _",
+                            "root->web_server->ip = _ _",
+                            "root->web_server->port = _ _",
+                            "root->web_server->path = _ _",
+                            "root->web_server = _ _",
+                        ]
+                        .join("\n"),
+                        name: "result".to_string(),
+                        next_v: vec![],
+                    })
+                    .await
+                {
+                    log::warn!("try clear cache: {e}\nwhen execute");
+                } else if let Err(e) = edge_engine.commit().await {
+                    log::warn!("clear cache: {e}\nwhen execute");
+                }
             }
         }
         Ok(())
