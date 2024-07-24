@@ -102,25 +102,6 @@ impl HttpConnector {
                 log::warn!("{e}\nwhen execute");
             } else {
                 log::info!("reported to {uri}");
-                if let Err(e) = edge_engine
-                    .execute1(&ScriptTree {
-                        script: [
-                            "root->web_server->name = _ _",
-                            "root->web_server->ip = _ _",
-                            "root->web_server->port = _ _",
-                            "root->web_server->path = _ _",
-                            "root->web_server = _ _",
-                        ]
-                        .join("\n"),
-                        name: "result".to_string(),
-                        next_v: vec![],
-                    })
-                    .await
-                {
-                    log::warn!("try clear cache: {e}\nwhen execute");
-                } else if let Err(e) = edge_engine.commit().await {
-                    log::warn!("clear cache: {e}\nwhen execute");
-                }
             }
         }
         Ok(())

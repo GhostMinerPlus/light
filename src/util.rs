@@ -77,7 +77,7 @@ mod main {
             .as_str()
             .to_string())
     }
-    
+
     fn hex2byte_v(s: &str) -> Vec<u8> {
         let mut byte_v = Vec::with_capacity(s.len() / 2 + 1);
         let mut is_h = true;
