@@ -4,8 +4,8 @@ use std::{collections::BTreeMap, io, sync::Arc};
 
 use earth::AsConfig;
 use edge_lib::{
-    data::{Auth, CacheDataManager, MemDataManager, TempDataManager},
-    EdgeEngine, ScriptTree,
+    data::{CacheDataManager, MemDataManager, TempDataManager},
+    engine::{EdgeEngine, ScriptTree},
 };
 use light::{connector, server};
 
@@ -30,7 +30,6 @@ struct Config {
     thread_num: u8,
     moon_servers: Vec<String>,
     domain: String,
-    key: String,
 }
 
 impl Default for Config {
@@ -46,7 +45,6 @@ impl Default for Config {
             thread_num: 8,
             moon_servers: Vec::new(),
             domain: format!("_"),
-            key: String::new(),
         }
     }
 }
@@ -76,13 +74,10 @@ fn main() -> io::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let global = Arc::new(TempDataManager::new(Arc::new(MemDataManager::new(
-                Auth::printer(&config.name),
-            ))));
+            let global = Arc::new(TempDataManager::new(Arc::new(MemDataManager::new(None))));
             let dm = Arc::new(CacheDataManager::new(global));
-            let mut edge_engine = EdgeEngine::new(dm.clone());
+            let mut edge_engine = EdgeEngine::new(dm.clone(), "root").await;
             // config.ip, config.port, config.name
-            let token = light::util::gen_token(&config.key, config.name.clone(), None).unwrap();
             edge_engine
                 .execute1(&ScriptTree {
                     script: [
@@ -92,7 +87,6 @@ fn main() -> io::Result<()> {
                         format!("root->path = {} _", config.path),
                         format!("root->src = {} _", config.src),
                         format!("root->domain = {} _", config.domain),
-                        format!("root->token = {} _", token),
                     ]
                     .join("\n"),
                     name: format!("result"),
@@ -120,10 +114,10 @@ fn main() -> io::Result<()> {
                 .into_iter()
                 .map(|(path, name)| {
                     [
-                        "$->$proxy = ? _",
-                        &format!("$->$proxy->path = {path} _"),
-                        &format!("$->$proxy->name = {name} _"),
-                        "root->proxy append root->proxy $->$proxy",
+                        "$->$:proxy = ? _",
+                        &format!("$->$:proxy->path = {path} _"),
+                        &format!("$->$:proxy->name = {name} _"),
+                        "root->proxy append root->proxy $->$:proxy",
                     ]
                     .join("\n")
                 })

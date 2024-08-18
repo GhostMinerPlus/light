@@ -1,6 +1,6 @@
 use std::io;
 
-use edge_lib::ScriptTree;
+use edge_lib::engine::ScriptTree;
 
 pub mod native {
     use pnet::datalink;

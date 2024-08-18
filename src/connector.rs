@@ -1,6 +1,10 @@
 use std::{io, sync::Arc, time::Duration};
 
-use edge_lib::{data::AsDataManager, util::Path, EdgeEngine, ScriptTree};
+use edge_lib::{
+    data::AsDataManager,
+    engine::{EdgeEngine, ScriptTree},
+    util::Path,
+};
 use tokio::time;
 
 use crate::util;
@@ -39,13 +43,13 @@ impl HttpConnector {
             domain_v[0].clone()
         };
 
-        let mut edge_engine = EdgeEngine::new(self.dm.clone());
+        let mut edge_engine = EdgeEngine::new(self.dm.clone(), "root").await;
         let rs = edge_engine
             .execute1(&ScriptTree {
                 script: [
-                    "$->$output = root->name _",
-                    "$->$output append $->$output root->port",
-                    "$->$output append $->$output root->path",
+                    "$->$:output = root->name _",
+                    "$->$:output append $->$:output root->port",
+                    "$->$:output append $->$:output root->path",
                 ]
                 .join("\n"),
                 name: format!("info"),
@@ -60,7 +64,7 @@ impl HttpConnector {
 
         let rs = edge_engine
             .execute1(&ScriptTree {
-                script: ["$->$output = root->moon_server _"].join("\n"),
+                script: ["$->$:output = root->moon_server _"].join("\n"),
                 name: format!("moon_server"),
                 next_v: vec![],
             })
@@ -70,14 +74,14 @@ impl HttpConnector {
         let moon_server_v = &rs["moon_server"];
 
         let script = [
-            &format!("$->$server_exists inner root->web_server {name}<-name"),
-            "$->$web_server if $->$server_exists ?",
-            &format!("$->$web_server->name = {name} _"),
-            &format!("$->$web_server->ip = {ip} _"),
-            &format!("$->$web_server->port = {port} _"),
-            &format!("$->$web_server->path = {path} _"),
-            "$->$web_server left $->$web_server $->$server_exists",
-            "root->web_server append root->web_server $->$web_server",
+            &format!("$->$:server_exists inner root->web_server {name}<-name"),
+            "$->$:web_server if $->$:server_exists ?",
+            &format!("$->$:web_server->name = {name} _"),
+            &format!("$->$:web_server->ip = {ip} _"),
+            &format!("$->$:web_server->port = {port} _"),
+            &format!("$->$:web_server->path = {path} _"),
+            "$->$:web_server left $->$:web_server $->$:server_exists",
+            "root->web_server append root->web_server $->$:web_server",
         ]
         .join("\n");
         for moon_server in moon_server_v.members() {
@@ -113,9 +117,9 @@ mod tests {
     use std::sync::Arc;
 
     use edge_lib::{
-        data::{AsDataManager, Auth, MemDataManager},
+        data::{AsDataManager, MemDataManager},
+        engine::{EdgeEngine, ScriptTree},
         util::Path,
-        EdgeEngine, ScriptTree,
     };
 
     #[test]
@@ -126,21 +130,22 @@ mod tests {
             .build()
             .unwrap()
             .block_on(async {
-                let dm = Arc::new(MemDataManager::new(Auth::printer("root")));
-                let mut edge_engine = EdgeEngine::new(dm.clone());
+                let dm = Arc::new(MemDataManager::new(None));
+                let mut edge_engine = EdgeEngine::new(dm.clone(), "root").await;
                 // config.ip, config.port, config.name
                 let name = "test";
                 let ip = "0.0.0.0";
                 let port = "8080";
                 let path = "/test";
                 let script = [
-                    &format!("$->$server_exists = inner root->web_server {name}<-name"),
-                    "$->$web_server = if $->$server_exists ?",
-                    &format!("$->$web_server->name = {name} _"),
-                    &format!("$->$web_server->ip = {ip} _"),
-                    &format!("$->$web_server->port = {port} _"),
-                    &format!("$->$web_server->path = {path} _"),
-                    "root->web_server += left $->$web_server $->$server_exists",
+                    &format!("$->$:server_exists inner root->web_server {name}<-name"),
+                    "$->$:web_server if $->$:server_exists ?",
+                    &format!("$->$:web_server->name = {name} _"),
+                    &format!("$->$:web_server->ip = {ip} _"),
+                    &format!("$->$:web_server->port = {port} _"),
+                    &format!("$->$:web_server->path = {path} _"),
+                    "$->$:web_server left $->$:web_server $->$:server_exists",
+                    "root->web_server append root->web_server $->$:web_server",
                 ]
                 .join("\n");
                 edge_engine

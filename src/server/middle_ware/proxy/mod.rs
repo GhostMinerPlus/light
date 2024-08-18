@@ -4,7 +4,7 @@ use actix_web::{
     body::BoxBody,
     dev::{ServiceRequest, ServiceResponse},
 };
-use edge_lib::{data::AsDataManager, util::Path, EdgeEngine};
+use edge_lib::{data::AsDataManager, engine::EdgeEngine, util::Path};
 use reqwest::StatusCode;
 
 pub async fn respone(
@@ -21,8 +21,7 @@ pub async fn respone(
         .get(&Path::from_str(&format!("{proxy}->name")))
         .await
         .unwrap();
-    let token_v = dm.get(&Path::from_str("root->token")).await.unwrap();
-    let req_cell = inner::extract_req(&req, token_v.first().unwrap(), payload).await;
+    let req_cell = inner::extract_req(&req, payload).await;
     if let Some(uri) = inner::get_uri_from_cache(edge_engine, &name_v[0])
         .await
         .unwrap()
@@ -52,8 +51,7 @@ pub async fn respone_moon(
     req: ServiceRequest,
 ) -> ServiceResponse<BoxBody> {
     let (req, payload) = req.into_parts();
-    let token_v = dm.get(&Path::from_str("root->token")).await.unwrap();
-    let req_cell = inner::extract_req(&req, token_v.first().unwrap(), payload).await;
+    let req_cell = inner::extract_req(&req, payload).await;
     let moon_server_v = dm.get(&Path::from_str("root->moon_server")).await.unwrap();
     let uri = &moon_server_v[0];
     let tail_path = &path[MOON_SERVICE_PATH.len()..];
@@ -66,7 +64,11 @@ pub async fn respone_moon(
 mod inner {
     use actix_http::{body::BoxBody, Payload};
     use actix_web::{http::header::HeaderMap, HttpRequest, HttpResponse};
-    use edge_lib::{data::AsDataManager, util::Path, EdgeEngine, ScriptTree};
+    use edge_lib::{
+        data::AsDataManager,
+        engine::{EdgeEngine, ScriptTree},
+        util::Path,
+    };
     use futures_util::TryStreamExt;
     use reqwest::{header::HeaderValue, Method, StatusCode};
     use std::sync::Arc;
@@ -75,7 +77,6 @@ mod inner {
 
     pub async fn extract_req(
         req: &HttpRequest,
-        token: &str,
         mut payload: Payload,
     ) -> (Method, reqwest::header::HeaderMap, String, bytes::Bytes) {
         (
@@ -86,11 +87,7 @@ mod inner {
                     if name == "Cookie" {
                         headers.insert(
                             name.clone(),
-                            HeaderValue::from_str(&format!(
-                                "{};printer={token}",
-                                value.to_str().unwrap()
-                            ))
-                            .unwrap(),
+                            HeaderValue::from_str(&format!("{}", value.to_str().unwrap())).unwrap(),
                         );
                     } else {
                         headers.insert(name.clone(), value.clone());
@@ -169,13 +166,13 @@ mod inner {
     ) -> err::Result<Option<String>> {
         let cache_rs = edge_engine
             .execute1(&ScriptTree {
-                script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
+                script: [format!("$->$:output inner root->web_server {name}<-name")].join("\n"),
                 name: format!("web_server"),
                 next_v: vec![ScriptTree {
                     script: [
-                        format!("$->$output = $->$input->ip _"),
-                        format!("$->$output append $->$output $->$input->port"),
-                        format!("$->$output append $->$output $->$input->path"),
+                        format!("$->$:output = $->$:input->ip _"),
+                        format!("$->$:output append $->$:output $->$:input->port"),
+                        format!("$->$:output append $->$:output $->$:input->path"),
                     ]
                     .join("\n"),
                     name: format!("info"),
@@ -204,13 +201,13 @@ mod inner {
             return Err(err::Error::Other(format!("no moon_server")));
         }
         let script_tree = ScriptTree {
-            script: [format!("$->$output inner root->web_server {name}<-name")].join("\n"),
+            script: [format!("$->$:output inner root->web_server {name}<-name")].join("\n"),
             name: format!("web_server"),
             next_v: vec![ScriptTree {
                 script: [
-                    format!("$->$output = $->$input->ip _"),
-                    format!("$->$output append $->$output $->$input->port"),
-                    format!("$->$output append $->$output $->$input->path"),
+                    format!("$->$:output = $->$:input->ip _"),
+                    format!("$->$:output append $->$:output $->$:input->port"),
+                    format!("$->$:output append $->$:output $->$:input->path"),
                 ]
                 .join("\n"),
                 name: format!("info"),
@@ -227,13 +224,13 @@ mod inner {
             if let Err(e) = edge_engine
                 .execute1(&ScriptTree {
                     script: [
-                        &format!("$->$web_server = root->web_server {name}<-name"),
-                        "$->$web_server if $->$web_server ?",
-                        &format!("$->$web_server->name = {name} _"),
-                        &format!("$->$web_server->ip = {ip} _"),
-                        &format!("$->$web_server->port = {port} _"),
-                        &format!("$->$web_server->path = {path} _"),
-                        "root->web_server distinct root->web_server $->$web_server",
+                        &format!("$->$:web_server = root->web_server {name}<-name"),
+                        "$->$:web_server if $->$:web_server ?",
+                        &format!("$->$:web_server->name = {name} _"),
+                        &format!("$->$:web_server->ip = {ip} _"),
+                        &format!("$->$:web_server->port = {port} _"),
+                        &format!("$->$:web_server->path = {path} _"),
+                        "root->web_server distinct root->web_server $->$:web_server",
                     ]
                     .join("\n"),
                     name: format!("result"),

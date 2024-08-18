@@ -1,17 +1,17 @@
-mod proxy;
-
 use actix_http::body::BoxBody;
 use actix_web::{
     dev::{forward_ready, Service, Transform},
     dev::{ServiceRequest, ServiceResponse},
     web, Error,
 };
-use edge_lib::{data::AsDataManager, util::Path, EdgeEngine};
+use edge_lib::{data::AsDataManager, util::Path, engine::EdgeEngine};
 use futures_util::future::LocalBoxFuture;
 use std::{
     future::{self, Ready},
     sync::Arc,
 };
+
+mod proxy;
 
 // Public
 pub struct ProxyMiddleware<S> {
@@ -43,7 +43,7 @@ where
                 return Ok(proxy::respone_moon(&path, dm, req).await);
             }
             let proxy_v = dm.get(&Path::from_str("root->proxy")).await.unwrap();
-            let mut edge_engine = EdgeEngine::new(dm.clone());
+            let mut edge_engine = EdgeEngine::new(dm.clone(), "root").await;
             for proxy in &proxy_v {
                 let fake_path_v = dm
                     .get(&Path::from_str(&format!("{proxy}->path")))
