@@ -1,6 +1,6 @@
 use std::io;
 
-use edge_lib::ScriptTree;
+use edge_lib::engine::ScriptTree;
 
 pub mod native {
     use pnet::datalink;
@@ -28,7 +28,7 @@ pub mod native {
 
 pub async fn http_execute1(uri: &str, script_tree: &ScriptTree) -> io::Result<String> {
     let res = reqwest::Client::new()
-        .post(uri)
+        .post(format!("{uri}/execute1"))
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(script_tree).unwrap())
         .send()
@@ -77,7 +77,7 @@ mod main {
             .as_str()
             .to_string())
     }
-    
+
     fn hex2byte_v(s: &str) -> Vec<u8> {
         let mut byte_v = Vec::with_capacity(s.len() / 2 + 1);
         let mut is_h = true;

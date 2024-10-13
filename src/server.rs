@@ -5,7 +5,10 @@ mod service;
 use std::{io, sync::Arc};
 
 use actix_web::{web, HttpServer};
-use edge_lib::{data::AsDataManager, EdgeEngine, ScriptTree};
+use edge_lib::{
+    data::AsDataManager,
+    engine::{EdgeEngine, ScriptTree},
+};
 
 // Public
 pub struct WebServer {
@@ -19,14 +22,14 @@ impl WebServer {
 
     /// Server run itself. This will block current thread.
     pub async fn run(self) -> io::Result<()> {
-        let mut edge_engine = EdgeEngine::new(self.dm.clone());
+        let mut edge_engine = EdgeEngine::new(self.dm.clone(), "root").await;
 
         let script = [
-            "$->$output = = root->name _",
-            "$->$output += = root->ip _",
-            "$->$output += = root->port _",
-            "$->$output += = root->path _",
-            "$->$output += = root->src _",
+            "$->$:output = = root->name _",
+            "$->$:output += = root->ip _",
+            "$->$:output += = root->port _",
+            "$->$:output += = root->path _",
+            "$->$:output += = root->src _",
         ]
         .join("\n");
         let rs = edge_engine
