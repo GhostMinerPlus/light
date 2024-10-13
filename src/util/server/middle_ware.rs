@@ -4,12 +4,16 @@ use actix_web::{
     dev::{ServiceRequest, ServiceResponse},
     web, Error,
 };
-use edge_lib::{data::AsDataManager, util::Path, engine::EdgeEngine};
+use edge_lib::util::{
+    data::{AsDataManager, MemDataManager},
+    Path,
+};
 use futures_util::future::LocalBoxFuture;
 use std::{
     future::{self, Ready},
     sync::Arc,
 };
+use tokio::sync::Mutex;
 
 mod proxy;
 
@@ -34,31 +38,26 @@ where
         Box::pin(async move {
             let path = req.path().to_string();
             log::info!("request: {path}");
-            let dm = req
-                .app_data::<web::Data<Arc<dyn AsDataManager>>>()
+            let global_mutex = req
+                .app_data::<web::Data<Arc<Mutex<MemDataManager>>>>()
                 .unwrap()
                 .as_ref()
                 .clone();
+            let mut global = global_mutex.lock().await;
+
             if path.starts_with(proxy::MOON_SERVICE_PATH) {
-                return Ok(proxy::respone_moon(&path, dm, req).await);
+                return Ok(proxy::respone_moon(&path, &mut *global, req).await);
             }
-            let proxy_v = dm.get(&Path::from_str("root->proxy")).await.unwrap();
-            let mut edge_engine = EdgeEngine::new(dm.clone(), "root").await;
+            let proxy_v = global.get(&Path::from_str("root->proxy")).await.unwrap();
             for proxy in &proxy_v {
-                let fake_path_v = dm
+                let fake_path_v = global
                     .get(&Path::from_str(&format!("{proxy}->path")))
                     .await
                     .unwrap();
                 if path.starts_with(&fake_path_v[0]) {
-                    return Ok(proxy::respone(
-                        &path,
-                        &fake_path_v[0],
-                        dm,
-                        req,
-                        proxy,
-                        &mut edge_engine,
-                    )
-                    .await);
+                    return Ok(
+                        proxy::respone(&path, &fake_path_v[0], &mut *global, req, proxy).await,
+                    );
                 }
             }
             service.call(req).await
