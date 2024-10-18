@@ -36,30 +36,42 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let service = self.service.clone();
         Box::pin(async move {
-            let path = req.path().to_string();
-            log::info!("request: {path}");
-            let global_mutex = req
-                .app_data::<web::Data<Arc<Mutex<MemDataManager>>>>()
-                .unwrap()
-                .as_ref()
-                .clone();
-            let mut global = global_mutex.lock().await;
+            {
+                let path = req.path().to_string();
+                log::info!("request: {path}");
+                let global_mutex = req
+                    .app_data::<web::Data<Arc<Mutex<MemDataManager>>>>()
+                    .unwrap()
+                    .as_ref()
+                    .clone();
 
-            if path.starts_with(proxy::MOON_SERVICE_PATH) {
-                return Ok(proxy::respone_moon(&path, &mut *global, req).await);
-            }
-            let proxy_v = global.get(&Path::from_str("root->proxy")).await.unwrap();
-            for proxy in &proxy_v {
-                let fake_path_v = global
-                    .get(&Path::from_str(&format!("{proxy}->path")))
-                    .await
-                    .unwrap();
-                if path.starts_with(&fake_path_v[0]) {
-                    return Ok(
-                        proxy::respone(&path, &fake_path_v[0], &mut *global, req, proxy).await,
-                    );
+                let mut global = global_mutex.lock().await;
+
+                if path.starts_with(proxy::MOON_SERVICE_PATH) {
+                    return Ok(proxy::respone_moon(&path, &mut *global, req).await);
+                }
+
+                let proxy_v = global.get(&Path::from_str("root->proxy")).await.unwrap();
+
+                for proxy in &proxy_v {
+                    let fake_path_v = global
+                        .get(&Path::from_str(&format!("{proxy}->path")))
+                        .await
+                        .unwrap();
+
+                    if path.starts_with(&fake_path_v[0]) {
+                        return Ok(proxy::respone(
+                            &path,
+                            &fake_path_v[0],
+                            &mut *global,
+                            req,
+                            proxy,
+                        )
+                        .await);
+                    }
                 }
             }
+
             service.call(req).await
         })
     }
