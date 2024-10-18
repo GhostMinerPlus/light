@@ -217,9 +217,9 @@ mod inner {
                 json::parse(&rs_2_str(&rs)).map_err(|e| err::Error::Other(e.to_string()))?;
             log::debug!("web_servers: {web_server_v}");
             let (ip, port, path) = (
-                web_server_v[0]["ip"][0].as_str().unwrap(),
-                web_server_v[0]["port"][0].as_str().unwrap(),
-                web_server_v[0]["path"][0].as_str().unwrap(),
+                web_server_v[0]["$:ip"][0].as_str().unwrap(),
+                web_server_v[0]["$:port"][0].as_str().unwrap(),
+                web_server_v[0]["$:path"][0].as_str().unwrap(),
             );
             if let Err(e) = edge_engine
                 .execute_script(&[
