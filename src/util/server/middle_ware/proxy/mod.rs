@@ -1,31 +1,28 @@
-use std::sync::Arc;
-
 use actix_web::{
     body::BoxBody,
     dev::{ServiceRequest, ServiceResponse},
 };
-use edge_lib::{data::AsDataManager, engine::EdgeEngine, util::Path};
+use edge_lib::util::{
+    data::{AsDataManager, MemDataManager},
+    Path,
+};
 use reqwest::StatusCode;
 
 pub async fn respone(
     path: &str,
     fake_path: &str,
-    dm: Arc<dyn AsDataManager>,
+    global: &mut MemDataManager,
     req: ServiceRequest,
     proxy: &str,
-    edge_engine: &mut EdgeEngine,
 ) -> ServiceResponse<BoxBody> {
     let tail_path = &path[fake_path.len()..];
     let (req, payload) = req.into_parts();
-    let name_v = dm
+    let name_v = global
         .get(&Path::from_str(&format!("{proxy}->name")))
         .await
         .unwrap();
     let req_cell = inner::extract_req(&req, payload).await;
-    if let Some(uri) = inner::get_uri_from_cache(edge_engine, &name_v[0])
-        .await
-        .unwrap()
-    {
+    if let Some(uri) = inner::get_uri_from_cache(global, &name_v[0]).await.unwrap() {
         let res = inner::proxy_fn(req_cell.clone(), format!("{uri}{tail_path}")).await;
         match res.status() {
             StatusCode::NOT_FOUND => (),
@@ -34,7 +31,7 @@ pub async fn respone(
             }
         }
     }
-    let uri = inner::get_uri_from_remote(edge_engine, dm, &name_v[0])
+    let uri = inner::get_uri_from_remote(global, &name_v[0])
         .await
         .unwrap();
     return ServiceResponse::new(
@@ -47,7 +44,7 @@ pub const MOON_SERVICE_PATH: &str = "/moon_server";
 
 pub async fn respone_moon(
     path: &str,
-    dm: Arc<dyn AsDataManager>,
+    dm: &mut MemDataManager,
     req: ServiceRequest,
 ) -> ServiceResponse<BoxBody> {
     let (req, payload) = req.into_parts();
@@ -64,14 +61,13 @@ pub async fn respone_moon(
 mod inner {
     use actix_http::{body::BoxBody, Payload};
     use actix_web::{http::header::HeaderMap, HttpRequest, HttpResponse};
-    use edge_lib::{
-        data::AsDataManager,
-        engine::{EdgeEngine, ScriptTree},
-        util::Path,
+    use edge_lib::util::{
+        data::{AsDataManager, MemDataManager},
+        engine::{AsEdgeEngine, EdgeEngine},
+        rs_2_str, Path,
     };
     use futures_util::TryStreamExt;
     use reqwest::{header::HeaderValue, Method, StatusCode};
-    use std::sync::Arc;
 
     use crate::{err, util};
 
@@ -161,86 +157,83 @@ mod inner {
     }
 
     pub async fn get_uri_from_cache(
-        edge_engine: &mut EdgeEngine,
+        global: &mut MemDataManager,
         name: &str,
     ) -> err::Result<Option<String>> {
-        let cache_rs = edge_engine
-            .execute1(&ScriptTree {
-                script: [format!("$->$:output inner root->web_server {name}<-name")].join("\n"),
-                name: format!("web_server"),
-                next_v: vec![ScriptTree {
-                    script: [
-                        format!("$->$:output = $->$:input->ip _"),
-                        format!("$->$:output append $->$:output $->$:input->port"),
-                        format!("$->$:output append $->$:output $->$:input->path"),
-                    ]
-                    .join("\n"),
-                    name: format!("info"),
-                    next_v: vec![],
-                }],
-            })
-            .await
-            .map_err(|e| err::Error::Other(e.to_string()))?;
-        if !cache_rs["web_server"].is_empty() && cache_rs["web_server"]["info"].len() == 3 {
-            let (ip, port, path) = parser::parse_info(&cache_rs)?;
+        let mut edge_engine = EdgeEngine::new(global);
+        let web_server_v = json::parse(&rs_2_str(
+            &edge_engine
+                .execute_script(&[
+                    format!("$->$:web_server inner root->web_server {name}<-name"),
+                    format!("$->$:web_server->$:ip = $->$:web_server->ip _"),
+                    format!("$->$:web_server->$:port = $->$:web_server->port _"),
+                    format!("$->$:web_server->$:path = $->$:web_server->path _"),
+                    format!("$->$:output dump $->$:web_server $"),
+                ])
+                .await
+                .map_err(|e| err::Error::Other(e.to_string()))?,
+        ))
+        .unwrap();
+
+        if web_server_v.len() == 1 {
+            let (ip, port, path) = (
+                web_server_v[0]["ip"][0].as_str().unwrap(),
+                web_server_v[0]["port"][0].as_str().unwrap(),
+                web_server_v[0]["path"][0].as_str().unwrap(),
+            );
             return Ok(Some(parser::parse_uri(ip, port, path)));
         }
         Ok(None)
     }
 
     pub async fn get_uri_from_remote(
-        edge_engine: &mut EdgeEngine,
-        dm: Arc<dyn AsDataManager>,
+        global: &mut MemDataManager,
         name: &str,
     ) -> err::Result<String> {
-        let moon_server_v = dm
+        let moon_server_v = global
             .get(&Path::from_str("root->moon_server"))
             .await
             .map_err(err::map_io_err)?;
         if moon_server_v.is_empty() {
             return Err(err::Error::Other(format!("no moon_server")));
         }
-        let script_tree = ScriptTree {
-            script: [format!("$->$:output inner root->web_server {name}<-name")].join("\n"),
-            name: format!("web_server"),
-            next_v: vec![ScriptTree {
-                script: [
-                    format!("$->$:output = $->$:input->ip _"),
-                    format!("$->$:output append $->$:output $->$:input->port"),
-                    format!("$->$:output append $->$:output $->$:input->path"),
-                ]
-                .join("\n"),
-                name: format!("info"),
-                next_v: vec![],
-            }],
-        };
+
+        let mut edge_engine = EdgeEngine::new(global);
+
         for moon_server in &moon_server_v {
-            let rs = util::http_execute1(moon_server, &script_tree)
-                .await
-                .map_err(err::map_io_err)?;
-            let rs = json::parse(&rs).map_err(|e| err::Error::Other(e.to_string()))?;
-            log::debug!("web_servers: {rs}");
-            let (ip, port, path) = parser::parse_info(&rs)?;
+            let rs = util::native::http_execute_script(
+                moon_server,
+                &[
+                    format!("$->$:web_server inner root->web_server {name}<-name"),
+                    format!("$->$:web_server->$:ip = $->$:web_server->ip _"),
+                    format!("$->$:web_server->$:port = $->$:web_server->port _"),
+                    format!("$->$:web_server->$:path = $->$:web_server->path _"),
+                    format!("$->$:output dump $->$:web_server $"),
+                ],
+            )
+            .await
+            .map_err(err::map_io_err)?;
+            let web_server_v =
+                json::parse(&rs_2_str(&rs)).map_err(|e| err::Error::Other(e.to_string()))?;
+            log::debug!("web_servers: {web_server_v}");
+            let (ip, port, path) = (
+                web_server_v[0]["ip"][0].as_str().unwrap(),
+                web_server_v[0]["port"][0].as_str().unwrap(),
+                web_server_v[0]["path"][0].as_str().unwrap(),
+            );
             if let Err(e) = edge_engine
-                .execute1(&ScriptTree {
-                    script: [
-                        &format!("$->$:web_server = root->web_server {name}<-name"),
-                        "$->$:web_server if $->$:web_server ?",
-                        &format!("$->$:web_server->name = {name} _"),
-                        &format!("$->$:web_server->ip = {ip} _"),
-                        &format!("$->$:web_server->port = {port} _"),
-                        &format!("$->$:web_server->path = {path} _"),
-                        "root->web_server distinct root->web_server $->$:web_server",
-                    ]
-                    .join("\n"),
-                    name: format!("result"),
-                    next_v: vec![],
-                })
+                .execute_script(&[
+                    format!("$->$:web_server = root->web_server {name}<-name"),
+                    format!("$->$:web_server if $->$:web_server ?"),
+                    format!("$->$:web_server->name = {name} _"),
+                    format!("$->$:web_server->ip = {ip} _"),
+                    format!("$->$:web_server->port = {port} _"),
+                    format!("$->$:web_server->path = {path} _"),
+                    format!("root->web_server distinct root->web_server $->$:web_server"),
+                ])
                 .await
             {
                 log::warn!("failed to execute1 cache, caused by {e}\nwhen get_uri_by_name");
-            } else if let Err(e) = edge_engine.commit().await {
-                log::warn!("failed to commit cache, caused by {e}\nwhen get_uri_by_name");
             }
             return Ok(parser::parse_uri(ip, port, path));
         }
@@ -248,22 +241,6 @@ mod inner {
     }
 
     mod parser {
-        use crate::err;
-
-        pub fn parse_info(rs: &json::JsonValue) -> err::Result<(&str, &str, &str)> {
-            let info = &rs["web_server"]["info"][0];
-            let ip = info[0]
-                .as_str()
-                .ok_or(err::Error::Other(format!("no ip")))?;
-            let port = info[1]
-                .as_str()
-                .ok_or(err::Error::Other(format!("no port")))?;
-            let path = info[2]
-                .as_str()
-                .ok_or(err::Error::Other(format!("no path")))?;
-            Ok((ip, port, path))
-        }
-
         pub fn parse_uri(ip: &str, port: &str, path: &str) -> String {
             if ip.contains(':') {
                 if port == "80" {
