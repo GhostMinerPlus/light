@@ -3,7 +3,7 @@
 mod err;
 mod util;
 
-use std::{collections::BTreeMap, io, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use earth::AsConfig;
 use edge_lib::util::{
@@ -53,7 +53,7 @@ impl Default for Config {
     }
 }
 
-fn main() -> io::Result<()> {
+fn main() {
     // Parse config
     let mut config = Config::default();
     let mut arg_v: Vec<String> = std::env::args().collect();
@@ -68,64 +68,73 @@ fn main() -> io::Result<()> {
         config.merge_by_arg_v(&arg_v);
     }
     config.merge_by_env(&format!("{}", config.name));
+
     // Config log
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(&config.log_level))
         .init();
     log::debug!("{:?}", config);
+
     // Run server
-    tokio::runtime::Builder::new_multi_thread()
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(config.thread_num as usize)
         .enable_all()
-        .build()?
-        .block_on(async {
-            let mut global = MemDataManager::new(None);
+        .build()
+        .unwrap();
 
-            {
-                let mut edge_engine = EdgeEngine::new(&mut global);
-                // config.ip, config.port, config.name
-                edge_engine
-                    .execute_script(&[
-                        format!("root->name = {} _", config.name),
-                        format!("root->ip = {} _", config.ip),
-                        format!("root->port = {} _", config.port),
-                        format!("root->path = {} _", config.path),
-                        format!("root->src = {} _", config.src),
-                        format!("root->domain = {} _", config.domain),
-                    ])
-                    .await?;
-                let option_script = config
-                    .moon_servers
-                    .iter()
-                    .map(|moon_server| {
-                        format!("root->moon_server append root->moon_server {moon_server}")
-                    })
-                    .collect::<Vec<String>>();
-                if !option_script.is_empty() {
-                    edge_engine.execute_script(&option_script).await?;
-                }
-                let option_script1 = config
-                    .proxy
-                    .into_iter()
-                    .map(|(path, name)| {
-                        vec![
-                            format!("$->$:proxy = ? _"),
-                            format!("$->$:proxy->path = {path} _"),
-                            format!("$->$:proxy->name = {name} _"),
-                            format!("root->proxy append root->proxy $->$:proxy"),
-                        ]
-                    })
-                    .reduce(|mut acc, block| {
-                        acc.extend(block);
-                        acc
-                    });
-                if let Some(script) = option_script1 {
-                    edge_engine.execute_script(&script).await?;
-                }
+    rt.block_on(async {
+        let mut global = MemDataManager::new(None);
+
+        {
+            let mut edge_engine = EdgeEngine::new(&mut global);
+            // config.ip, config.port, config.name
+            edge_engine
+                .execute_script(&[
+                    format!("root->name = {} _", config.name),
+                    format!("root->ip = {} _", config.ip),
+                    format!("root->port = {} _", config.port),
+                    format!("root->path = {} _", config.path),
+                    format!("root->src = {} _", config.src),
+                    format!("root->domain = {} _", config.domain),
+                ])
+                .await
+                .unwrap();
+
+            let option_script = config
+                .moon_servers
+                .iter()
+                .map(|moon_server| {
+                    format!("root->moon_server append root->moon_server {moon_server}")
+                })
+                .collect::<Vec<String>>();
+            
+            if !option_script.is_empty() {
+                edge_engine.execute_script(&option_script).await.unwrap();
             }
 
-            let gloabl = Arc::new(Mutex::new(global));
+            let option_script1 = config
+                .proxy
+                .into_iter()
+                .map(|(path, name)| {
+                    vec![
+                        format!("$->$:proxy = ? _"),
+                        format!("$->$:proxy->path = {path} _"),
+                        format!("$->$:proxy->name = {name} _"),
+                        format!("root->proxy append root->proxy $->$:proxy"),
+                    ]
+                })
+                .reduce(|mut acc, block| {
+                    acc.extend(block);
+                    acc
+                });
 
-            tokio::spawn(connector::HttpConnector::new(gloabl.clone()).run());
-            server::WebServer::new(gloabl).run().await
-        })
+            if let Some(script) = option_script1 {
+                edge_engine.execute_script(&script).await.unwrap();
+            }
+        }
+
+        let gloabl = Arc::new(Mutex::new(global));
+
+        tokio::spawn(connector::HttpConnector::new(gloabl.clone()).run());
+        server::WebServer::new(gloabl).run().await.unwrap()
+    })
 }

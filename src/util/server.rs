@@ -35,7 +35,8 @@ impl WebServer {
                 "$->$:output += $->$:output root->path".to_string(),
                 "$->$:output += $->$:output root->src".to_string(),
             ])
-            .await?;
+            .await
+            .unwrap();
 
         drop(edge_engine);
         drop(global);

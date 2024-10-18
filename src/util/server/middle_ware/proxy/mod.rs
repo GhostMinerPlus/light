@@ -171,7 +171,7 @@ mod inner {
                     format!("$->$:output dump $->$:web_server $"),
                 ])
                 .await
-                .map_err(|e| err::Error::Other(e.to_string()))?,
+                .map_err(|e| err::Error::Other(e.message().to_string()))?,
         ))
         .unwrap();
 
@@ -193,7 +193,7 @@ mod inner {
         let moon_server_v = global
             .get(&Path::from_str("root->moon_server"))
             .await
-            .map_err(err::map_io_err)?;
+            .map_err(|e| err::Error::Other(e.message().to_string()))?;
         if moon_server_v.is_empty() {
             return Err(err::Error::Other(format!("no moon_server")));
         }
@@ -233,7 +233,7 @@ mod inner {
                 ])
                 .await
             {
-                log::warn!("failed to execute1 cache, caused by {e}\nwhen get_uri_by_name");
+                log::warn!("failed to execute1 cache, caused by {e:?}\nwhen get_uri_by_name");
             }
             return Ok(parser::parse_uri(ip, port, path));
         }

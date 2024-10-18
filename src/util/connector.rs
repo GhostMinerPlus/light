@@ -35,7 +35,7 @@ impl HttpConnector {
         let domain_v = global
             .get(&Path::from_str("root->domain"))
             .await
-            .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?;
+            .map_err(|e| io::Error::other(format!("{e:?}\nwhen execute")))?;
         let ip = if domain_v.is_empty() {
             util::native::get_global_ipv6()
                 .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?
@@ -51,7 +51,7 @@ impl HttpConnector {
                 format!("$->$:output append $->$:output root->path"),
             ])
             .await
-            .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?;
+            .map_err(|e| io::Error::other(format!("{e:?}\nwhen execute")))?;
 
         let name = &rs[0];
         let port = &rs[1];
@@ -60,7 +60,7 @@ impl HttpConnector {
         let moon_server_v = edge_engine
             .execute_script(&[format!("$->$:output = root->moon_server _")])
             .await
-            .map_err(|e| io::Error::other(format!("{e}\nwhen execute")))?;
+            .map_err(|e| io::Error::other(format!("{e:?}\nwhen execute")))?;
         drop(edge_engine);
         drop(global);
 
